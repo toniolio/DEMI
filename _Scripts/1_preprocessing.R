@@ -6,7 +6,6 @@
 ### Import required packages and functions ###
 
 library(dplyr)
-library(bezier)
 library(TSEntropies)
 
 source("./_Scripts/_functions/complexity.R")
@@ -32,6 +31,8 @@ pathlen_summary <- frames %>%
 
 # Calculate real bezier path length, sinuosity, and total absolute curvature
 
+# NOTE: get bezier bounds for height/width and proximity to screen edges?
+
 figsummary <- segments %>%
   mutate(
     curve_len = bezier_length(start.x, start.y, end.x, end.y, ctrl.x, ctrl.y),
@@ -51,22 +52,22 @@ figsummary <- segments %>%
   select(c(1:trial, real_length, sinuosity, totabscurv))
 
 
-# Calcuate turning angle for entropy metrics (old bezier method)
+# Calcuate turning angle for entropy metrics
+
+points_per_segment <- 60
+tvals <- seq(0, points_per_segment - 1) / points_per_segment
 
 turnangledat <- segments %>%
-  select(-c(end.x, end.y)) %>%
   group_by(id, session, block, trial) %>%
-  pivot_longer(
-    -c(id, session, block, trial),
-    names_to = c("type", ".value"),
-    names_sep = "\\."
+  group_modify(
+    ~ get_fig_points(tvals,
+      .x$start.x, .x$start.y,
+      .x$end.x, .x$end.y,
+      .x$ctrl.x, .x$ctrl.y
+    )
   ) %>%
-  group_modify(~ as.data.frame(bezier(
-    seq(0, 5, length = 300), cbind(.$x, .$y),
-    end = c(.$x[1], .$y[1]), deg = 2
-  ))) %>%
   mutate(
-    theta = get_angle_diffs(V1 - lag(V1), V2 - lag(V2))
+    theta = get_angle_diffs(x - lag(x), y - lag(y))
   )
 
 

@@ -8,12 +8,13 @@ A set of R scripts for importing, preprocessing, and visualizing data collected 
 
 These scripts are designed to be a template that different TraceLab analyses can be based on, leaving final data cleaning and modelling scripts for specific projects to be added by the user.
 
+
 ## Requirements
 
 All dependencies for these scripts can be installed by running the following line:
 
 ```r
-install.packages(c("tidyverse", "bezier", "TSEntropies", "vegan", "dtw"))
+install.packages(c("tidyverse", "TSEntropies", "vegan", "dtw"))
 ```
 
 The scripts have been developed and tested on R 3.6. They may work with older versions of R but are not guaranteed to function correctly.
@@ -33,7 +34,7 @@ source('./_Scripts/1_preprocessing.R') # imports and preprocesses data
 
 Running the preprocessing script will also run the import script, so in most cases you just want to run the second line.
 
-To build the rest of the analysis pipeline for a project, additional numbered scripts should be added to the `_Scripts` folder (e.g. `2_descriptives.R`, `3_models.R`, `4_report.R`, etc.), the first of which should call `source("./_Scripts/1_preprocessing.R")` near the top.
+To build the rest of the analysis pipeline for a project, additional numbered scripts should be added to the `_Scripts` folder (e.g. `2_descriptives.R`, `3_models.R`, `4_report.R`), the first of which should source the preprocessing script near the top.
 
 
 ## Output
