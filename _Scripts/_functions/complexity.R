@@ -30,9 +30,11 @@ bezier_length <- function(start.x, start.y, end.x, end.y, ctrl.x, ctrl.y) {
   C2 <- 2 * sqrt(C)
   BA <- B / A2
 
-  n1 <- A32 * sqrtABC + A2 * B * (sqrtABC - C2)
-  n2 <- ((4 * C * A) - B ** 2) * log((2 * A2 + BA + sqrtABC) / (BA + C2))
-  len <- (n1 + n2) / (4 * A32)
+  suppressWarnings({
+    n1 <- A32 * sqrtABC + A2 * B * (sqrtABC - C2)
+    n2 <- ((4 * C * A) - B ** 2) * log((2 * A2 + BA + sqrtABC) / (BA + C2))
+    len <- (n1 + n2) / (4 * A32)
+  })
 
   # If length is NA or NaN, recalculate length of segment as straight line
   len <- ifelse(is.na(len), line_length(start.x, start.y, end.x, end.y), len)
