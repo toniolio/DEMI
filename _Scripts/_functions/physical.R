@@ -52,29 +52,31 @@ reinterpolate <- function(x, y, time, equidistant = FALSE, fps = 60, n = NA) {
 }
 
 
-# Matches lengths of stimuli and responses via downsampling
+# Matches length of stimulus to response via reinterpolation
 
-match_lengths <- function(x1, y1, x2, y2) {
+match_lengths <- function(x, y, tx, ty, equidist = FALSE) {
 
-  # Get longest and shortest path lengths for stim and tracing
-  pathlens <- c(max(which(!is.na(x1))), max(which(!is.na(x2))))
-  longest <- max(pathlens)
-  shortest <- min(pathlens)
+  # Get path lengths of stim and tracing
+  stim_n <- max(which(!is.na(x)))
+  trace_n <- max(which(!is.na(tx)))
 
-  # Get indices of frames to keep from shorter of two paths
-  keep <- round(seq(from = 1, to = longest, by = longest / shortest))
+  # Reinterpolate stim to make it equal to tracing in length
+  stime <- seq(1, stim_n) * (1 / 60)
+  newstim <- reinterpolate(x[!is.na(x)], y[!is.na(y)], stime, n = trace_n)
+  matched_df <- tibble(
+    x = newstim$x, y = newstim$y,
+    trace.x = tx[!is.na(tx)], trace.y = ty[!is.na(ty)]
+  )
 
-  # Drop frames from longer path to make stim and tracing equal in frame count
-  if (pathlens[1] == longest) {
-    matched_df <- tibble(
-      x = x1[keep], y = y1[keep],
-      trace.x = x2[1:shortest], trace.y = y2[1:shortest]
+  # If enabled, reinterpolate tracing so all points are equidistant
+  if (equidist) {
+    ttime <- seq(1, trace_n) * (1 / 60)
+    newtrace <- reinterpolate(
+      tx[!is.na(tx)], ty[!is.na(ty)],
+      ttime, equidistant = TRUE, n = trace_n
     )
-  } else {
-    matched_df <- tibble(
-      x = x1[1:shortest], y = y1[1:shortest],
-      trace.x = x2[keep], trace.y = y2[keep]
-      )
+    matched_df$trace.x <- newtrace$x
+    matched_df$trace.y <- newtrace$y
   }
 
   matched_df
@@ -84,10 +86,10 @@ match_lengths <- function(x1, y1, x2, y2) {
 
 ### Transformation functions ###
 
-procrustes2df <- function(x1, y1, x2, y2) {
+procrustes2df <- function(x, y, tx, ty) {
 
-  stim <- cbind(x1, y1)
-  resp <- cbind(x2, y2)
+  stim <- cbind(x, y)
+  resp <- cbind(tx, ty)
 
   # Do procrustes transformation and get translated dataframe
   proc <- procrustes(stim, resp, scale = TRUE, symmetric = FALSE)
@@ -95,12 +97,12 @@ procrustes2df <- function(x1, y1, x2, y2) {
   proc_df <- as_tibble(proc_mat, .name_repair = ~ c("proc.x", "proc.y"))
 
   # Bind stim columns to procrustes data
-  proc_df <- add_column(proc_df, x = x1, .before = 1)
-  proc_df <- add_column(proc_df, y = y1, .before = 2)
+  proc_df <- add_column(proc_df, x = x, .before = 1)
+  proc_df <- add_column(proc_df, y = y, .before = 2)
 
   # Get procrustes metrics and add to dataframe
-  proc_dx <- proc$xmean[1] - mean(x2)
-  proc_dy <- proc$xmean[2] - mean(y2)
+  proc_dx <- proc$xmean[1] - mean(tx)
+  proc_dy <- proc$xmean[2] - mean(ty)
   proc_df$translation <- sqrt(proc_dx ** 2 + proc_dy ** 2)
   proc_df$scale <- proc$scale
   proc_df$rotation <- acos(proc$rotation[1, 1])
@@ -109,14 +111,14 @@ procrustes2df <- function(x1, y1, x2, y2) {
 }
 
 
-dtw2df <- function(x1, y1, x2, y2) {
+dtw2df <- function(x, y, tx, ty, step = asymmetric) {
 
   # Do dynamic time warping and get warped dataframe
   warped <- dtw(
-    x = cbind(x2[!is.na(x2)], y2[!is.na(y2)]),
-    y = cbind(x1[!is.na(x1)], y1[!is.na(y1)]),
+    x = cbind(tx[!is.na(tx)], ty[!is.na(ty)]),
+    y = cbind(x[!is.na(x)], y[!is.na(y)]),
     dist.method = "Euclidean",
-    step.pattern = symmetric1,
+    step.pattern = step,
     window.type = "none",
     keep.internals = TRUE,
     distance.only = FALSE,
@@ -126,10 +128,10 @@ dtw2df <- function(x1, y1, x2, y2) {
 
   # Return dataframe with warped stimulus and response points
   dtw_df <- tibble(
-    x_w = x1[warped$index2],
-    y_w = y1[warped$index2],
-    trace.x_w = x2[warped$index1],
-    trace.y_w = y2[warped$index1]
+    x_w = x[warped$index2],
+    y_w = y[warped$index2],
+    trace.x_w = tx[warped$index1],
+    trace.y_w = ty[warped$index1]
   )
 
   dtw_df

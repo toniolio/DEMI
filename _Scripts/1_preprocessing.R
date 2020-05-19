@@ -307,18 +307,18 @@ figtrace <- stim_temp %>%
 
 
 
-### Perform accuracy analyses for tracing responses ###
+### Perform accuracy analyses for raw tracing responses ###
 
-# Downsample paths to be equal lengths (shorten whichever is longest)
+# Resample stimulus frames to match trace lengths
 
-figtrace <- figtrace %>%
+figtrace_eq <- figtrace %>%
   group_by(id, session, block, trial) %>%
   group_modify(~ match_lengths(.$x, .$y, .$trace.x, .$trace.y))
 
 
 # Get raw error measures
 
-err_raw <- figtrace %>%
+err_raw <- figtrace_eq %>%
   mutate(err = line_length(x, y, trace.x, trace.y)) %>%
   summarize(
     raw_err_tot = sum(err),
@@ -330,7 +330,7 @@ err_raw <- figtrace %>%
 
 # Get Procrustes error measures
 
-err_proc <- figtrace %>%
+err_proc <- figtrace_eq %>%
   group_modify(~ procrustes2df(.$x, .$y, .$trace.x, .$trace.y)) %>%
   mutate(err = line_length(x, y, proc.x, proc.y)) %>%
   summarize(
@@ -344,10 +344,56 @@ err_proc <- figtrace %>%
   )
 
 
-# Get dynamic time warping error measures
+
+### Perform accuracy analyses for equidistant tracing responses ###
+
+# Resample stimulus frames to match trace lengths & reinterpolate tracing points
+# to be evenly spaced along path
+
+figtrace_equidist <- figtrace %>%
+  group_by(id, session, block, trial) %>%
+  group_modify(~ match_lengths(.$x, .$y, .$trace.x, .$trace.y, equidist = TRUE))
+
+
+# Get raw error measures
+
+err_eqd <- figtrace_equidist %>%
+  mutate(err = line_length(x, y, trace.x, trace.y)) %>%
+  summarize(
+    eqd_err_tot = sum(err),
+    eqd_err_mean = mean(err),
+    eqd_err_sd = sd(err),
+    eqd_err_paired_sd = paired.sd(err)
+  )
+
+
+# Get Procrustes error measures
+
+err_eqd_proc <- figtrace_equidist %>%
+  group_modify(~ procrustes2df(.$x, .$y, .$trace.x, .$trace.y)) %>%
+  mutate(err = line_length(x, y, proc.x, proc.y)) %>%
+  summarize(
+    translation_eqd = translation[1],
+    scale_eqd = scale[1],
+    rotation_eqd = rotation[1],
+    shape_eqd_err_tot = sum(err),
+    shape_eqd_err_mean = mean(err),
+    shape_eqd_err_sd = sd(err),
+    shape_eqd_err_paired_sd = paired.sd(err)
+  )
+
+
+
+### Perform accuracy analyses for dtw-processed tracing responses ###
+
+# Resample stimulus frames to match trace lengths using dtw
 
 figtrace_dtw <- figtrace %>%
+  group_by(id, session, block, trial) %>%
   group_modify(~ dtw2df(.$x, .$y, .$trace.x, .$trace.y))
+
+
+# Get dynamic time warping error measures
 
 err_dtw <- figtrace_dtw %>%
   mutate(err = line_length(x_w, y_w, trace.x_w, trace.y_w)) %>%
@@ -375,17 +421,19 @@ err_dtw_proc <- figtrace_dtw %>%
   )
 
 
+
+### Merge summarized figure data with task data ###
+
 # Join all tracing summary data together
 
 tracesummary <- tracesummary %>%
   left_join(err_raw, by = c("id", "session", "block", "trial")) %>%
   left_join(err_proc, by = c("id", "session", "block", "trial")) %>%
+  left_join(err_eqd, by = c("id", "session", "block", "trial")) %>%
+  left_join(err_eqd_proc, by = c("id", "session", "block", "trial")) %>%
   left_join(err_dtw, by = c("id", "session", "block", "trial")) %>%
   left_join(err_dtw_proc, by = c("id", "session", "block", "trial"))
 
-
-
-### Merge summarized figure data with task data ###
 
 # Generate proper id key for joining figure data to task data
 
