@@ -20,6 +20,38 @@ paired.sd <- function(x) {
 }
 
 
+# Reinterpolates a figure or tracing, either by time or by distance
+
+reinterpolate <- function(x, y, time, equidistant = FALSE, fps = 60, n = NA) {
+
+  # If equidistant, interpolate constant-velocity points along path. Otherwise,
+  # use timestamps to generate points at same variable speed as input tracing.
+  if (equidistant) {
+    dists <- sqrt((x - lag(x))^2 + (y - lag(y))^2)
+    dists[1] <- 0
+    steps <- cumsum(dists)
+  } else {
+    steps <- time
+  }
+
+  # Figure out number of frames to generate based on tracing time and framerate,
+  # unless number of frames is explicitly provided
+  if (!is.na(n)) {
+    out_num <- n
+  } else {
+    out_num <- round(max(time) / (1 / fps)) + 1 # add 1 because first time is 0
+  }
+
+  # Return new interpolated points
+  interpolated <- tibble(
+    x = approx(steps, x, n = out_num, method = "linear")$y,
+    y = approx(steps, y, n = out_num, method = "linear")$y
+  )
+
+  interpolated
+}
+
+
 # Matches lengths of stimuli and responses via downsampling
 
 match_lengths <- function(x1, y1, x2, y2) {
@@ -52,8 +84,6 @@ match_lengths <- function(x1, y1, x2, y2) {
 
 ### Transformation functions ###
 
-# NOTE: rename to "do_procrustes" and "do_dtw" for better readability?
-
 procrustes2df <- function(x1, y1, x2, y2) {
 
   stim <- cbind(x1, y1)
@@ -83,7 +113,8 @@ dtw2df <- function(x1, y1, x2, y2) {
 
   # Do dynamic time warping and get warped dataframe
   warped <- dtw(
-    x = cbind(x2, y2), y = cbind(x1, y1),
+    x = cbind(x2[!is.na(x2)], y2[!is.na(y2)]),
+    y = cbind(x1[!is.na(x1)], y1[!is.na(y1)]),
     dist.method = "Euclidean",
     step.pattern = symmetric1,
     window.type = "none",

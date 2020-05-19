@@ -8,9 +8,11 @@
 library(dplyr)
 library(TSEntropies)
 
+source("./_Scripts/_settings.R")
 source("./_Scripts/_functions/complexity.R")
+source("./_Scripts/_functions/filters.R")
 source("./_Scripts/_functions/physical.R")
-
+source("./_Scripts/_functions/visualization.R")
 
 
 ### Import figure data ###
@@ -92,23 +94,189 @@ figsummary <- pathlen_summary %>%
 
 
 
-### Preprocess tracing data prior to accuracy analysis ###
+### Filter tracing data prior to accuracy analysis ###
 
-# Perform initial data cleaning
+# Get origin point for each trial
+
+origins <- points %>%
+  group_by(id, session, block, trial) %>%
+  summarize(origin.x = x[1], origin.y = y[1])
+
+
+# Calculate useful metrics for data filtering and drop all repeated points
 
 responsedat <- tracings %>%
+  left_join(origins, by = c("id", "session", "block", "trial")) %>%
   group_by(id, session, block, trial) %>%
   mutate(
     time = time - time[1], # ensure first time is 0.0
+    dist = line_length(lag(x), lag(y), x, y),
+    origin.dist = line_length(origin.x, origin.y, x, y)
+  ) %>%
+  filter(is.na(dist) | dist > 0)
+
+
+# Trim extra points following failed trial end
+
+responsedat <- responsedat %>%
+  mutate(timediff = ifelse(is.na(lag(time)), 0, time - lag(time))) %>%
+  mutate(done = trial_done(origin.dist, timediff, done_filter_params))
+
+failed_end_trials <- responsedat %>%
+  summarize(
+    samples = n(),
+    num_done = sum(done),
+    mt_diff = max(time[!done]) - max(time),
+    prop_remaining = 1 - (sum(done) / n())
+  ) %>%
+  filter(num_done > 0)
+
+if (plot_filters) {
+  plot_trials(failed_end_trials, responsedat, "done", "./filters/done")
+}
+responsedat <- subset(responsedat, !done)
+
+
+# Flag and remove glitch points during tracings
+
+responsedat <- responsedat %>%
+  mutate(angle_diff = (get_angle_diffs(x - lag(x), y - lag(y)) / pi) * 180) %>%
+  mutate(
+    glitch = is_glitch(dist, angle_diff, origin.dist, glitch_filter_params)
+  )
+
+glitch_trials <- responsedat %>%
+  summarize(
+    samples = n(),
+    glitches = sum(glitch)
+  ) %>%
+  filter(glitches > 0)
+
+if (plot_filters) {
+  plot_trials(glitch_trials, responsedat, "glitch", "./filters/glitch")
+}
+responsedat <- subset(responsedat, !glitch)
+
+
+# Flag and remove false start samples
+
+responsedat <- responsedat %>%
+  mutate(timediff = ifelse(is.na(lag(time)), 0, time - lag(time))) %>%
+  mutate(false_start = false_start(timediff, false_start_params))
+
+false_starts <- responsedat %>%
+  summarize(
+    samples = n(),
+    flagged = sum(false_start)
+  ) %>%
+  filter(flagged > 0)
+
+if (plot_filters) {
+  plot_trials(false_starts, responsedat, "false_start", "./filters/false_start")
+}
+responsedat <- subset(responsedat, !false_start)
+
+
+# Try to flag and remove hand noise samples
+
+responsedat <- responsedat %>%
+  mutate(
+    timediff = ifelse(is.na(lag(time)), 0, time - lag(time)),
+    angle_diff = (get_angle_diffs(x - lag(x), y - lag(y)) / pi) * 180,
     dist = line_length(lag(x), lag(y), x, y)
   ) %>%
-  filter(is.na(dist) | dist > 0) %>%  # drop repeated points
-  mutate(mt_clip = max(time))
+  mutate(
+    hnoise = hand_noise(
+      dist, timediff, angle_diff, origin.dist, hand_noise_params
+    )
+  )
+
+hand_noise_trials <- responsedat %>%
+  summarize(
+    samples = n(),
+    flagged = sum(hnoise)
+  ) %>%
+  filter(flagged > 0)
+
+if (plot_filters) {
+  plot_trials(hand_noise_trials, responsedat, "hnoise", "./filters/hand_noise")
+}
+responsedat <- subset(responsedat, !hnoise)
 
 
-# Get tracing time and path length summary for all figures
+# Flag and drop trials with incomplete tracings
+
+fig_info <- frames %>%
+  group_by(id, session, block, trial) %>%
+  summarize(fig_samples = n())
+
+incomplete_trials <- responsedat %>%
+  summarize(
+    samples = n(),
+    end_gap = origin.dist[n()] - origin.dist[1],
+    duration = max(time),
+    max_size = max(c(max(x) - min(x), max(y) - min(y)))
+  ) %>%
+  left_join(fig_info, by = c("id", "session", "block", "trial")) %>%
+  mutate(
+    incomplete = is_incomplete(end_gap, samples, fig_samples, incomplete_params)
+  ) %>%
+  filter(incomplete)
+
+if (plot_filters) {
+  plot_trials(incomplete_trials, responsedat, "done", "./filters/incomplete")
+}
+trial_key <- c("id", "session", "block", "trial")
+responsedat <- anti_join(responsedat, incomplete_trials, by = trial_key)
+
+
+# Flag and drop trials with excessive time or distance gaps
+
+responsedat <- responsedat %>%
+  mutate(
+    timediff = ifelse(is.na(lag(time)), 0, time - lag(time)),
+    angle_diff = (get_angle_diffs(x - lag(x), y - lag(y)) / pi) * 180,
+    dist = line_length(lag(x), lag(y), x, y)
+  ) %>%
+  mutate(turn_sum = abs(angle_diff) + abs(lead(angle_diff))) %>%
+  mutate(
+    gap = is_gap(dist, timediff, turn_sum, gap_filter_params)
+  )
+
+gap_trials <- responsedat %>%
+  summarize(
+    samples = n(),
+    longest_pause = max(timediff),
+    longest_jump = max(dist, na.rm = TRUE),
+    any_gaps = any(gap)
+  ) %>%
+  filter(any_gaps)
+
+if (plot_filters) {
+  plot_trials(gap_trials, responsedat, "gap", "./filters/large_gap")
+}
+responsedat <- anti_join(responsedat, gap_trials, by = trial_key)
+
+
+# Flag (but don't remove) remaining trials where tracing hits edge of screen
+
+edge_trials <- responsedat %>%
+  summarize(
+    hit_top_edge = any(y == 0),
+    hit_bottom_edge = any(y == (screen_res[2] - 1)),
+    hit_left_edge = any(x == 0),
+    hit_right_edge = any(x == (screen_res[1] - 1))
+  ) %>%
+  filter(hit_top_edge | hit_bottom_edge | hit_left_edge | hit_right_edge)
+
+
+
+### Prepare tracing & figure data for accuracy analysis ###
+
+# Get duration and path length for all tracings
 
 tracesummary <- responsedat %>%
+  mutate(mt_clip = max(time)) %>%
   summarize(
     mt_clip = mt_clip[1],
     PLresp = sum(dist, na.rm = TRUE)
@@ -116,8 +284,11 @@ tracesummary <- responsedat %>%
   mutate(vresp = PLresp / mt_clip)
 
 
+# Reinterpolate dropped/filtered points in figures by time
 
-### Perform accuracy analyses for tracing responses ###
+resp_interpolated <- responsedat %>%
+  group_modify(~ reinterpolate(.$x, .$y, .$time))
+
 
 # Join figure and tracing data into a single data frame
 
@@ -125,17 +296,18 @@ stim_temp <- frames %>%
   group_by(id, session, block, trial) %>%
   mutate(frame = 1:n(), time = time - time[1])
 
-resp_temp <- responsedat %>%
-  group_by(id, session, block, trial) %>%
-  filter(n() >= 20) %>% # drop tracings w/ less than 20 unique frames
-  mutate(frame = 1:n()) %>% # NOTE: doesn't account for dropped/filtered frames
-  rename(trace.x = x, trace.y = y, trace.time = time)
+resp_temp <- resp_interpolated %>%
+  mutate(frame = 1:n()) %>%
+  rename(trace.x = x, trace.y = y)
 
 figtrace <- stim_temp %>%
   full_join(resp_temp, by = c("id", "session", "block", "trial", "frame")) %>%
-  filter(!is.na(trace.time[1])) %>%
-  select(1:trial, frame, x, y, time, trace.x, trace.y, trace.time)
+  filter(!is.na(trace.x[1])) %>%
+  select(1:trial, frame, x, y, trace.x, trace.y)
 
+
+
+### Perform accuracy analyses for tracing responses ###
 
 # Downsample paths to be equal lengths (shorten whichever is longest)
 
