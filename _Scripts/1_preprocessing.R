@@ -208,7 +208,10 @@ responsedat <- subset(responsedat, !hnoise)
 
 fig_info <- frames %>%
   group_by(id, session, block, trial) %>%
-  summarize(fig_samples = n())
+  summarize(
+    fig_samples = n(),
+    fig_max_size = max(c(max(x) - min(x), max(y) - min(y)))
+  )
 
 incomplete_trials <- responsedat %>%
   summarize(
@@ -219,7 +222,13 @@ incomplete_trials <- responsedat %>%
   ) %>%
   left_join(fig_info, by = c("id", "session", "block", "trial")) %>%
   mutate(
-    incomplete = is_incomplete(end_gap, samples, fig_samples, incomplete_params)
+    sample_ratio = fig_samples / samples,
+    size_ratio = fig_max_size / max_size
+  ) %>%
+  mutate(
+    incomplete = is_incomplete(
+      end_gap, sample_ratio, size_ratio, incomplete_params
+    )
   ) %>%
   filter(incomplete)
 

@@ -49,9 +49,12 @@ plot_figure_path <- function(px, py) {
 # Plots the stimulus and tracing points from a given trial together in
 # different colours for comparison of overall shape
 
-plot_tracing_pts <- function(px, py, tx, ty) {
+plot_tracing_pts <- function(px, py, tx, ty, path = FALSE) {
+
+  max_len <- max(length(px), length(tx))
+  length(px) <- length(py) <- length(tx) <- length(ty) <- max_len
   dat <- data.frame(
-    n = seq_along(px),
+    n = seq_len(max_len),
     fig.x = px, fig.y = py,
     trace.x = tx, trace.y = ty
   )
@@ -59,7 +62,12 @@ plot_tracing_pts <- function(px, py, tx, ty) {
     gather(2:5, key = "name", value = "val") %>%
     separate(name, c("type", "coord"), sep = "\\.") %>%
     spread(coord, val)
-  ggplot(dat, aes(x = x, y = y, color = type)) +
+
+  plt <- ggplot(dat, aes(x = x, y = y, color = type))
+  if (path) {
+    plt <- plt + geom_path(alpha = 0.5)
+  }
+  plt +
     geom_point(alpha = 0.5) +
     scale_x_continuous(expand = c(0, 0), limits = c(0, screen_res[1])) +
     scale_y_reverse(expand = c(0, 0), limits = c(screen_res[2], 0)) +

@@ -134,16 +134,18 @@ hand_noise <- function(dist, timediff, angle_diff, origin_dist, params) {
 
 # Flag tracings likely to be accidentally incomplete
 
-is_incomplete <- function(end_gap, samples, fig_samples, params) {
+is_incomplete <- function(end_gap, sample_ratio, size_ratio, params) {
 
   min_end_gap <- params$min_end_gap
+  min_size_ratio <- params$min_size_ratio
   min_sample_ratio <- params$min_sample_ratio
 
-  # Apply the end-gap and sample ratio filters
-  too_small <- (fig_samples / samples) > min_sample_ratio
+  # Apply the end-gap, sample ratio, and size ratio filters
+  too_quick <- sample_ratio > min_sample_ratio
+  too_small <- size_ratio > min_size_ratio
   no_return <- end_gap > min_end_gap
 
-  too_small | no_return
+  too_quick | too_small | no_return
 }
 
 

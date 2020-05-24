@@ -88,6 +88,9 @@ total_abs_curvature <- function(start.x, start.y, end.x, end.y, ctrl.x, ctrl.y) 
   # note, this essentially misses the spikes in curvature created by
   # segment intersections. Consider using turning angle.
 
+  # NOTE: This metric doesn't correlate with any of the other complexity
+  # measures, may be calculating wrong. Revisit and rethink before using.
+
   t <- seq(0, 1, length = 60)
   seg_count <- length(start.x)
   curvatures <- sapply(seq_len(seg_count), function(i) {

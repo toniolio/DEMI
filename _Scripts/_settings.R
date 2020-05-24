@@ -158,11 +158,16 @@ hand_noise_params <- list(
 # - 'min_end_gap': The minimum size (in px) of the gap between the first and
 #    last points of a tracing for it to be flagged as incomplete.
 #
+# - 'min_size_ratio': The minimum ratio of figure size to tracing size for the
+#    tracing to be flagged as incomplete. For this filter, "size" refers to
+#    whichever dimension is largest (height or width).
+#
 # - 'min_sample_ratio': The minimum ratio of figure frames to tracing samples
 #    for the tracing to be flagged as incomplete.
 
 incomplete_params <- list(
   min_end_gap = 300,
+  min_size_ratio = 2.5,
   min_sample_ratio = 2
 )
 
