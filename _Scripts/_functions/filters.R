@@ -37,7 +37,7 @@ trial_done <- function(origin_dist, timediff, params) {
 
   # Flag all samples after tracing stops moving for a while within wider
   # threshold of origin boundary (after wider boundary is exited)
-  stopped <- !is.na(lead(timediff)) & lead(timediff) > min_pause
+  stopped <- !is.na(timediff) & timediff > min_pause
   near_end <- prop >= end_prop
   stopped_near <- cumsum(stopped & near_end) > 0
 
