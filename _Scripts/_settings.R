@@ -162,20 +162,42 @@ hand_noise_params <- list(
 # finger part-way, leaving an incomplete shape. This filter tries to catch and
 # exclude these kinds of trials from further analysis.
 #
+# There are three main categories of incomplete trials:
+# * "end gap" trials: Where due to technical or user error, there is a large
+#    gap between the last point of the tracing and the origin point. Filtered
+#    out using the 'min_end_gap' parameter.
+# * "missing shape" trials: A small cluster of samples around the origin with
+#    no discernable form. Filtered out using the 'min_size_ratio' parameter.
+# * "accidental end" trials: Where the participant accidentally hits the
+#    origin dot and ends the trial mid-trace. Filtered out using a combination
+#    of the 'min_length_ratio' and 'min_shift_diff' parameters.
+#
 # - 'min_end_gap': The minimum size (in px) of the gap between the first and
-#    last points of a tracing for it to be flagged as incomplete.
+#    last points of a tracing for it to be flagged as an "end gap" trial.
 #
 # - 'min_size_ratio': The minimum ratio of figure size to tracing size for the
-#    tracing to be flagged as incomplete. For this filter, "size" refers to
-#    whichever dimension is largest (height or width).
+#    tracing to be flagged as a "missing shape" trial. For this filter, "size"
+#    refers to whichever dimension is largest (height or width).
 #
-# - 'min_sample_ratio': The minimum ratio of figure frames to tracing samples
-#    for the tracing to be flagged as incomplete.
+# - 'min_length_ratio': The minimum ratio of figure path length to tracing path
+#    length for a trial to be flagged as an "accidental end" trial (if the
+#    'min_shift_diff' threshold is also met).
+#
+# - 'min_shift_diff': The minimum difference in absolute lateral shift between
+#    the tracing and figure for a trial to be flagged as an "accidental end"
+#    trial (if the 'min_length_ratio' threshold is also met). "Lateral shift"
+#    here refers to how much a figure is shifted left or right from being
+#    centered on the origin point: for example, a tracing where all samples are
+#    to the left of the origin would have a lateral shift of >= 1, whereas a
+#    a tracing centered directly on the origin would have a shift of 0. If a
+#    figure is fairly centered on origin but its tracing is not, this is a 
+#    good indicator of an accidental trial end.
 
 incomplete_params <- list(
   min_end_gap = 300,
   min_size_ratio = 2.5,
-  min_sample_ratio = 2
+  min_length_ratio = 1.45,
+  min_shift_diff = 0.71
 )
 
 

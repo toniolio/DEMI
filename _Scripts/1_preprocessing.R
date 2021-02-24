@@ -206,28 +206,33 @@ responsedat <- subset(responsedat, !hnoise)
 
 # Flag and drop trials with incomplete tracings
 
+origin_x <- screen_res[1] / 2
+
 fig_info <- frames %>%
   group_by(id, session, block, trial) %>%
   summarize(
-    fig_samples = n(),
-    fig_max_size = max(c(max(x) - min(x), max(y) - min(y)))
-  )
+    fig_max_size = max(c(max(x) - min(x), max(y) - min(y))),
+    fig_lat_shift = ((min(x) - origin_x) / (max(x) - min(x)) + 0.5) * 2
+  ) %>%
+  left_join(pathlen_summary, by = c("id", "session", "block", "trial"))
 
 incomplete_trials <- responsedat %>%
+  mutate(seglen = line_length(lag(x), lag(y), x, y)) %>%
   summarize(
-    samples = n(),
-    end_gap = origin.dist[n()] - origin.dist[1],
-    duration = max(time),
-    max_size = max(c(max(x) - min(x), max(y) - min(y)))
+    end_gap = abs(origin.dist[n()] - origin.dist[1]),
+    max_size = max(c(max(x) - min(x), max(y) - min(y))),
+    lat_shift = ((min(x) - origin_x) / (max(x) - min(x)) + 0.5) * 2,
+    trace_len = sum(seglen, na.rm = TRUE)
   ) %>%
   left_join(fig_info, by = c("id", "session", "block", "trial")) %>%
   mutate(
-    sample_ratio = fig_samples / samples,
-    size_ratio = fig_max_size / max_size
+    size_ratio = fig_max_size / max_size,
+    shift_diff = abs(lat_shift) - abs(fig_lat_shift),
+    len_ratio = PLstim / trace_len
   ) %>%
   mutate(
     incomplete = is_incomplete(
-      end_gap, sample_ratio, size_ratio, incomplete_params
+      end_gap, size_ratio, len_ratio, shift_diff, incomplete_params
     )
   ) %>%
   filter(incomplete)
