@@ -78,20 +78,27 @@ glitch_filter_params <- list(
 
 ## False Start Filter
 
-# Sometimes, participants wiggle their finger around a bit before starting the
-# trace to get it to recognize the trial start, which can lead to some false
-# start samples in the first few points. This filter checks for time jumps
-# frames within those samples and drops all samples just before.
+# Sometimes participants have issues getting a trial to start, which can lead
+# to some small weird clusters of samples separated from the actual tracing
+# start by a small-to-substantial time delay (and can cause otherwise-good
+# trials to fail the 'excessive gap' filter below if the time delay is large
+# enough). This filter checks for time jumps within the first part of the
+# tracing and drops all samples prior to the last eligible jump.
 #
-# - 'start_samples': The number of samples at the start of the trace to check
-#    for excessive time jumps.
+# - 'start_radius': The maximum distance from the origin that the first "real"
+#    sample of the tracing can have for previous points to be flagged as "false
+#    start".
 #
-# - 'min_timediff': The minimum time difference (in ms) between points for
+# - 'max_prop': The maximum proportion of the tracing that can be complete for
+#    prior samples to be flagged as "false start".
+#
+# - 'min_pause': The minimum time difference (in ms) between points for
 #    previous points to be dropped.
 
 false_start_params <- list(
-  start_samples = 5,
-  min_timediff = 0.034
+  start_radius = 80,
+  max_prop = 0.20,
+  min_pause = 0.064
 )
 
 

@@ -162,7 +162,7 @@ responsedat <- subset(responsedat, !glitch)
 
 responsedat <- responsedat %>%
   mutate(timediff = ifelse(is.na(lag(time)), 0, time - lag(time))) %>%
-  mutate(false_start = false_start(timediff, false_start_params))
+  mutate(false_start = false_start(origin.dist, timediff, false_start_params))
 
 false_starts <- responsedat %>%
   summarize(

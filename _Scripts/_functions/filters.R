@@ -76,17 +76,24 @@ is_glitch <- function(dist, angle_diff, origin_dist, params) {
 }
 
 
-# Flag points preceeding abnormal time jump within first few samples
+# Flag points preceeding abnormal time jump within part of tracing
 
-false_start <- function(timediff, params) {
+false_start <- function(origin_dist, timediff, params) {
 
-  start_samples <- params$start_samples
-  min_timediff <- params$min_timediff
+  start_radius <- params$start_radius
+  max_prop <- params$max_prop
+  min_pause <- params$min_pause
 
-  # This is weirdly slow. Any idea why? It works right, at least.
-  within_start <- seq_along(timediff) < start_samples
-  early_gap <- within_start & lead(timediff) > min_timediff
-  false_start <- rev(cumsum(rev(!is.na(early_gap) & early_gap))) > 0
+  # Get proportion of tracing complete for each sample
+  n_samples <- length(origin_dist)
+  prop <- seq_len(n_samples) / n_samples
+
+  # Flag all samples prior to any long pauses in first part of tracing as
+  # false start, provided first sample after pause is still close to origin
+  eligible <- prop <= max_prop
+  stopped <- !is.na(timediff) & timediff > min_pause
+  near_origin <- eligible & origin_dist < start_radius
+  false_start <- cumsum(stopped & near_origin) < sum(stopped & near_origin)
 
   false_start
 }
