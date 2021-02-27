@@ -24,10 +24,16 @@ plot_filters <- TRUE
 # filter tries to detect when this happens and drop all points after the
 # failed "end trial" attempt from further analysis.
 #
-# - 'origin_radius': An expanded radius around the origin (in px).
+# - 'origin_radius': An expanded radius around the origin (in px). If the
+#    tracing passes within this radius and the proportion of tracing complete
+#    is >= 'min_prop', the tracing will be considered done.
 #
 # - 'end_radius': A radius around the origin (in px) all remaining points must
 #    be within before the tracing can be considered done.
+#
+# - 'pause_radius': The maximum distance (in px) that the previous point can be
+#    from the origin for a sufficiently long pause (as defined by 'min_pause')
+#    to be considered a tracing end. 
 #
 # - 'min_prop': The minimum proportion of the tracing that needs to be complete
 #    before the tracing can be considered done.
@@ -36,11 +42,13 @@ plot_filters <- TRUE
 #    before a sufficiently long pause can be considered a trial end.
 #
 # - 'min_pause': The minimum time difference (in ms) between two points in the
-#    end proportion of the trace for the trial to be considered done.
+#    end proportion of the trace for the trial to be considered done (provided
+#    that the previous sample is within 'pause_radius' of the origin).
 
 done_filter_params <- list(
   origin_radius = 50,
   end_radius = 400,
+  pause_radius = 400,
   min_prop = 0.6,
   end_prop = 0.82,
   min_pause = 0.100
