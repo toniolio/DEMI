@@ -35,8 +35,10 @@ col_overrides <- cols(
 taskdat <- map_df(taskfiles, function(f) {
   id_num <- as.numeric(gsub("^p(\\d+).*", "\\1", basename(f)))
   df <- read_tsv(f, comment = "#", col_types = col_overrides)
-  df <- add_column(df, db_id = id_num, .before = 2)
-  df
+  if (nrow(df) > 0) {
+    df <- add_column(df, db_id = id_num, .before = 2)
+    df
+  }
 })
 
 
