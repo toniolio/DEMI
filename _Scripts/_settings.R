@@ -136,9 +136,8 @@ false_start_params <- list(
 #    a "sharp jump", provided that the 'min_dist_a' threshold is also met
 #    for the same point.
 #
-# - 'max_samples': The maximum number of hand noise samples that can be appear
-#    on a given trial. If the number of flagged points is above this number,
-#    no points will be flagged as hand noise on that trial.
+# - 'max_size': The maximum allowed height or width of a detected hand noise
+#    region. Flagged regions larger than this size will be ignored.
 #
 # - 'max_timediff': The maximum time gap (in ms) that the two largest jumps in
 #    a tracing can have. If either jump takes longer than this, the points
@@ -155,12 +154,11 @@ false_start_params <- list(
 #    the 'min_dist_a' threshold but below the 'min_dist_b' one.
 #
 # - 'min_end_dist': The minimum size (in px) of jump away from the trial origin
-#    during the last $(max_samples) points for all remaining points (inclusive)
-#    to be flagged as hand noise.
+#    for a cluster of points at the end of a trial to be flagged as hand noise.
 
 hand_noise_params <- list(
   min_sharp_turnsum = 90,
-  max_samples = 10,
+  max_size = 100,
   max_timediff = 0.100,
   min_dist_a = 120,
   min_dist_b = 300,

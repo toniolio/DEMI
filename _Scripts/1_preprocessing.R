@@ -187,7 +187,7 @@ responsedat <- responsedat %>%
   ) %>%
   mutate(
     hnoise = hand_noise(
-      dist, timediff, angle_diff, origin.dist, hand_noise_params
+      x, y, timediff, angle_diff, origin.dist, hand_noise_params
     )
   )
 

@@ -117,15 +117,17 @@ false_start <- function(origin_dist, timediff, params) {
 
 # Flag points likely to be due to accidental input from other part of hand
 
-hand_noise <- function(dist, timediff, angle_diff, origin_dist, params) {
+hand_noise <- function(x, y, timediff, angle_diff, origin_dist, params) {
 
   min_sharp_turnsum <- params$min_sharp_turnsum
-  max_samples <- params$max_samples
+  max_size <- params$max_size
   max_timediff  <- params$max_timediff
   min_dist_a  <- params$min_dist_a
   min_dist_b  <- params$min_dist_b
   min_angle_diff  <- params$min_angle_diff
   min_end_dist  <- params$min_end_dist
+
+  dist <- sqrt((x - lag(x)) ** 2 + (y - lag(y)) ** 2)
 
   # Check whether the trial has any jumps sharp enough to indicate hand noise
   sharp_turn <- (abs(angle_diff) + abs(lead(angle_diff))) > min_sharp_turnsum
@@ -141,17 +143,25 @@ hand_noise <- function(dist, timediff, angle_diff, origin_dist, params) {
   large_jump <- eligible & large_enough & dist >= second_largest
   jumps <- cumsum(large_jump)
   is_noise <- jumps %% 2 == 1 & max(jumps) %% 2 == 0
-  is_noise <- is_noise & sum(is_noise) < max_samples
 
   # Check for hand noise at end of trial (large jump away from origin in
   # the last few samples)
-  n_samples <- length(origin_dist)
-  prop <- seq_len(n_samples) / n_samples
-  end_prop <- max(2 / n_samples, (n_samples - max_samples) / n_samples)
-  away_from_origin <- (origin_dist - lag(origin_dist)) > min_end_dist
-  end_noise <- cumsum(prop >= end_prop & away_from_origin) > 0
+  ends_near_origin <- tail(origin_dist, 1) < min_end_dist
+  eligible <- !is.na(lag(x)) & !ends_near_origin
+  away_from_origin <- eligible & (origin_dist - lag(origin_dist)) > min_end_dist
+  end_noise <- cumsum(away_from_origin) == max(1, sum(away_from_origin))
 
-  is_noise | end_noise
+  # To prevent large parts of tracings with excessive dropped/missing samples
+  # getting flagged as hand noise, set limits on the max size of the noise
+  noise <- is_noise | end_noise
+  if (any(noise)) {
+    noise_width <- max(x[noise]) - min(x[noise])
+    noise_height <- max(y[noise]) - min(y[noise])
+    too_big <- max(c(noise_width, noise_height)) > max_size
+    noise <- noise & !too_big
+  }
+
+  noise
 }
 
 
