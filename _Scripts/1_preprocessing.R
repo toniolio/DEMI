@@ -142,7 +142,7 @@ responsedat <- subset(responsedat, !done)
 responsedat <- responsedat %>%
   mutate(angle_diff = (get_angle_diffs(x - lag(x), y - lag(y)) / pi) * 180) %>%
   mutate(
-    glitch = is_glitch(dist, angle_diff, origin.dist, glitch_filter_params)
+    glitch = is_glitch(x, y, angle_diff, origin.dist, glitch_filter_params)
   )
 
 glitch_trials <- responsedat %>%

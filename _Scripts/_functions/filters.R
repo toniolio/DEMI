@@ -48,10 +48,12 @@ trial_done <- function(origin_dist, timediff, params) {
 
 # Flags points from touchscreen glitches
 
-is_glitch <- function(dist, angle_diff, origin_dist, params) {
+is_glitch <- function(x, y, angle_diff, origin_dist, params) {
 
   min_dist <- params$min_dist
   min_angle_diff <- params$min_angle_diff
+
+  dist <- sqrt((x - lag(x)) ** 2 + dy <- (y - lag(y)) ** 2)
 
   # If two large consecutive jumps, and angle difference between jumps beyond
   # threshold, flag point after first jump as glitch
@@ -60,12 +62,11 @@ is_glitch <- function(dist, angle_diff, origin_dist, params) {
   sharp_angle <- abs(lead(angle_diff)) > min_angle_diff
   angle_glitch <- eligible & both_large & sharp_angle
 
-  # Sometimes, multiple glitches occur in a row such that the first glitch point
-  # fails the angle threshold. This attempts to catch these missed points.
-  before_glitch <- eligible & lead(angle_glitch)
-  after_glitch <- eligible & lag(angle_glitch)
-  valid <- before_glitch & !after_glitch & !is.na(angle_diff)
-  pre_glitch <- valid & dist > min_dist & abs(angle_diff) > min_angle_diff
+  # Catch consecutive glitch points, which often have either the same x or y
+  # value as the previous/subsequent glitch
+  before <- !is.na(lead(x)) & lead(angle_glitch) & (x == lead(x) | y == lead(y))
+  after <- !is.na(lag(x)) & lag(angle_glitch) & (x == lag(x) | y == lag(y))
+  double_glitch <- before | after
 
   # If first point of trial is really far from origin, flag as glitch
   start_glitch <- is.na(dist) & lead(dist) > min_dist & origin_dist > min_dist
@@ -73,7 +74,7 @@ is_glitch <- function(dist, angle_diff, origin_dist, params) {
   # If last point of trial is large jump away from origin, flag that too
   end_glitch <- is.na(lead(dist)) & (origin_dist - lag(origin_dist)) > min_dist
 
-  angle_glitch | pre_glitch | start_glitch | end_glitch
+  angle_glitch | double_glitch | start_glitch | end_glitch
 }
 
 
