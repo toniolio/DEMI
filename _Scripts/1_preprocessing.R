@@ -116,6 +116,31 @@ responsedat <- tracings %>%
   filter(is.na(dist) | dist > 0)
 
 
+# Flag and drop any trials with no formed shape
+
+fig_info <- frames %>%
+  group_by(id, session, block, trial) %>%
+  summarize(fig_max_size = max(c(max(x) - min(x), max(y) - min(y))))
+
+no_shape_trials <- responsedat %>%
+  summarize(
+    duration = max(time),
+    max_size = max(c(max(x) - min(x), max(y) - min(y)))
+  ) %>%
+  left_join(fig_info, by = c("id", "session", "block", "trial")) %>%
+  mutate(
+    size_ratio = fig_max_size / max_size,
+    no_shape = size_ratio > no_shape_params$min_size_ratio
+  ) %>%
+  filter(no_shape)
+
+if (plot_filters) {
+  plot_trials(no_shape_trials, responsedat, outdir = "./filters/no_shape")
+}
+trial_key <- c("id", "session", "block", "trial")
+responsedat <- anti_join(responsedat, no_shape_trials, by = trial_key)
+
+
 # Trim extra points following failed trial end
 
 responsedat <- responsedat %>%

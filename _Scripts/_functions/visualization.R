@@ -18,19 +18,15 @@ source("./_Scripts/_settings.R")
 
 # Plots a stimulus or tracing as a series of points, w/ optional colour coding
 
-plot_figure_pts <- function(px, py, col = NULL) {
-  dat <- data.frame(x = px, y = py)
-  if (is.null(col)) {
-    plt <- ggplot(dat, aes(x = x, y = y))
-  } else {
-    dat$color <- col
-    plt <- ggplot(dat, aes(x = x, y = y, color = color))
-  }
-  plt +
+plot_figure_pts <- function(px, py, col = FALSE) {
+  hide_legend <- length(col) == 1
+  dat <- data.frame(x = px, y = py, color = col)
+  ggplot(dat, aes(x = x, y = y, color = color)) +
     geom_point(alpha = 0.5) +
     scale_x_continuous(expand = c(0, 0), limits = c(0, screen_res[1])) +
     scale_y_reverse(expand = c(0, 0), limits = c(screen_res[2], 0)) +
-    coord_fixed()
+    coord_fixed() +
+    theme(legend.position = ifelse(hide_legend, "none", "right"))
 }
 
 
@@ -107,7 +103,7 @@ plot_tracing_err <- function(px, py, tx, ty) {
 # Renders PDFs of all trials in a summary data frame to a given output path,
 # colour coding the sample points using the 'color_code' argument
 
-plot_trials <- function(trials, samples, color_code, outdir = ".") {
+plot_trials <- function(trials, samples, color_code = NULL, outdir = ".") {
 
   # Create output dir, deleting first if it already exists
   if (outdir != ".") {
@@ -131,8 +127,12 @@ plot_trials <- function(trials, samples, color_code, outdir = ".") {
       block == vals$block &
       trial == vals$trial
     )
-    tmp$col <- with(tmp, eval(parse(text = color_code)))
-    plt <- plot_figure_pts(tmp$x, tmp$y, tmp$col)
+    if (is.null(color_code)) {
+      plt <- plot_figure_pts(tmp$x, tmp$y)
+    } else {
+      tmp$col <- with(tmp, eval(parse(text = color_code)))
+      plt <- plot_figure_pts(tmp$x, tmp$y, tmp$col)
+    }
     ggsave(fname, plt, path = outdir, width = 11, height = 6)
   }
 }

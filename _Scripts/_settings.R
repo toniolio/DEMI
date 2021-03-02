@@ -17,6 +17,21 @@ plot_filters <- TRUE
 
 ### Tracing Filter Settings ###
 
+## 'No Shape' Filter
+
+# On some trials, the tracing consists only of a few samples with no clear
+# shape (either a short line or a small cluster near the origin). This filter
+# tries to catch and drop these using the figure-to-tracing size ratio.
+#
+# - 'min_size_ratio': The minimum ratio of figure size to tracing size for the
+#    tracing to be flagged as a "no shape" trial. For this filter, "size"
+#    refers to whichever dimension is largest (height or width).
+
+no_shape_params <- list(
+  min_size_ratio = 6
+)
+
+
 ## "Trial Done" Filter
 
 # On some trials, participants attempt to end the trial but miss the origin,
@@ -170,26 +185,22 @@ hand_noise_params <- list(
 ## Incomplete Trial Filter
 
 # On some trials, participants accidentally end their tracing early by tracing
-# too close to the origin point. On others, the touchscreen loses track of their
-# finger part-way, leaving an incomplete shape. This filter tries to catch and
-# exclude these kinds of trials from further analysis.
+# too close to the origin point ("accidental end" trials). On others, the
+# touchscreen loses track of their finger part-way, leaving an incomplete shape
+# ("end gap" trials). This filter tries to catch and exclude both kinds of
+# trials from further analysis.
 #
-# There are three main categories of incomplete trials:
-# * "end gap" trials: Where due to technical or user error, there is a large
-#    gap between the last point of the tracing and the origin point. Filtered
-#    out using the 'min_end_gap' parameter.
-# * "missing shape" trials: A small cluster of samples around the origin with
-#    no discernable form. Filtered out using the 'min_size_ratio' parameter.
-# * "accidental end" trials: Where the participant accidentally hits the
-#    origin dot and ends the trial mid-trace. Filtered out using a combination
-#    of the 'min_length_ratio' and 'min_shift_diff' parameters.
+# "Accidental end" trials are filtered out using either the 'min_size_ratio'
+# parameter or a combination of the 'min_length_ratio' and 'min_shift_diff'
+# parameters. "End gap" trials are filtered out using the 'min_end_gap'
+# parameter alone.
 #
 # - 'min_end_gap': The minimum size (in px) of the gap between the first and
 #    last points of a tracing for it to be flagged as an "end gap" trial.
 #
 # - 'min_size_ratio': The minimum ratio of figure size to tracing size for the
-#    tracing to be flagged as a "missing shape" trial. For this filter, "size"
-#    refers to whichever dimension is largest (height or width).
+#    tracing to be flagged as an "accidental end" trial. For this filter,
+#    "size" refers to whichever dimension is largest (height or width).
 #
 # - 'min_length_ratio': The minimum ratio of figure path length to tracing path
 #    length for a trial to be flagged as an "accidental end" trial (if the
