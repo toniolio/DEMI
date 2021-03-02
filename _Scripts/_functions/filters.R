@@ -52,8 +52,12 @@ is_glitch <- function(x, y, angle_diff, origin_dist, params) {
 
   min_dist <- params$min_dist
   min_angle_diff <- params$min_angle_diff
+  min_angle_diff_alt <- params$min_angle_diff_alt
 
-  dist <- sqrt((x - lag(x)) ** 2 + dy <- (y - lag(y)) ** 2)
+  # Calculate differences and distances between all points
+  dx <- x - lag(x)
+  dy <- y - lag(y)
+  dist <- sqrt(dx ** 2 + dy ** 2)
 
   # If two large consecutive jumps, and angle difference between jumps beyond
   # threshold, flag point after first jump as glitch
@@ -61,6 +65,16 @@ is_glitch <- function(x, y, angle_diff, origin_dist, params) {
   both_large <- dist > min_dist & lead(dist) > min_dist
   sharp_angle <- abs(lead(angle_diff)) > min_angle_diff
   angle_glitch <- eligible & both_large & sharp_angle
+  
+  # If there are two angle glitches in a row, make sure the first one is really
+  # a glitch by checking if the change in angle is still excessively large when
+  # ignoring the subsequent glitch point (or if point p + 2 is also a glitch)
+  if (sum(angle_glitch) > 1) {
+    angle_diff2 <- (get_angle_diffs(dx, dy, skip = 1) / pi) * 180
+    pre_glitch <- !is.na(lead(angle_diff2)) & lead(angle_glitch)
+    sharp_angle_alt <- !pre_glitch | abs(lead(angle_diff2)) > min_angle_diff_alt
+    angle_glitch <- angle_glitch & (lead(angle_glitch, 2) | sharp_angle_alt)
+  }
 
   # Catch consecutive glitch points, which often have either the same x or y
   # value as the previous/subsequent glitch

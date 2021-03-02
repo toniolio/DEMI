@@ -110,9 +110,17 @@ total_abs_curvature <- function(start.x, start.y, end.x, end.y, ctrl.x, ctrl.y) 
 
 ### Entropy functions ###
 
-get_angle_diffs <- function(dx, dy) {
+get_angle_diffs <- function(dx, dy, skip = 0) {
 
-  theta <- atan2(dy, dx) - atan2(lag(dy), lag(dx))
+  if (skip > 0) {
+    dx2 <- dx + lead(dx, skip)
+    dy2 <- dy + lead(dy, skip)
+  } else {
+    dx2 <- dx
+    dy2 <- dy
+  }
+
+  theta <- atan2(dy2, dx2) - atan2(lag(dy), lag(dx))
   theta <- ifelse(
     abs(theta) > pi,
     theta - (2 * pi) * sign(theta),

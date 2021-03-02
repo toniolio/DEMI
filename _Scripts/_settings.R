@@ -65,11 +65,16 @@ done_filter_params <- list(
 # This filter has four parts: a filter that detects glitches based on angle and
 # distance, two filters that detect whether the first or last points of the
 # tracing are glitch points, respectively, and a final filter that detects
-# glitches just based on large jumps in space [NOTE: may remove last one].
+# multiple glitches in a row when they share x or y positions.
 #
 # - 'min_angle_diff': The minimum absolute change in direction (in degrees) from
 #    the jump towards a point vs the jump away from it for a point to be able to
 #    be flagged as an angle glitch.
+#
+# - 'min_angle_diff_alt': The minimum absolute change in direction (in degrees)
+#    from the jump towards a point vs the jump to the point *two after* (i.e.
+#    ignoring a subsequent glitch point) for an angle_glitch to be considered
+#    valid. For reducing false positives.
 #
 # - 'min_dist': The minimum size (in px) that the jumps towards and away from a
 #    point must be for a point to be able to be flagged as an angle glitch. Also
@@ -80,6 +85,7 @@ done_filter_params <- list(
 
 glitch_filter_params <- list(
   min_angle_diff = 90,
+  min_angle_diff_alt = 70,
   min_dist = 100
 )
 
