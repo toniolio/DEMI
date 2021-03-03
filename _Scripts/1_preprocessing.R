@@ -235,11 +235,12 @@ origin_x <- screen_res[1] / 2
 
 fig_info <- frames %>%
   group_by(id, session, block, trial) %>%
+  mutate(seglen = line_length(lag(x), lag(y), x, y)) %>%
   summarize(
     fig_max_size = max(c(max(x) - min(x), max(y) - min(y))),
-    fig_lat_shift = ((min(x) - origin_x) / (max(x) - min(x)) + 0.5) * 2
-  ) %>%
-  left_join(pathlen_summary, by = c("id", "session", "block", "trial"))
+    fig_lat_shift = ((min(x) - origin_x) / (max(x) - min(x)) + 0.5) * 2,
+    fig_len = sum(seglen, na.rm = TRUE)
+  )
 
 incomplete_trials <- responsedat %>%
   mutate(seglen = line_length(lag(x), lag(y), x, y)) %>%
@@ -253,7 +254,7 @@ incomplete_trials <- responsedat %>%
   mutate(
     size_ratio = fig_max_size / max_size,
     shift_diff = abs(lat_shift) - abs(fig_lat_shift),
-    len_ratio = PLstim / trace_len
+    len_ratio = fig_len / trace_len
   ) %>%
   mutate(
     incomplete = is_incomplete(
