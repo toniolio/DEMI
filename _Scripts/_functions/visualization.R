@@ -14,15 +14,29 @@ source("./_Scripts/_settings.R")
 
 
 
+### Utility Functions ###
+
+# Extracts the data for a given trial from a dataframe
+
+get_trial <- function(dat, p_num, s_num, b_num, t_num) {
+  subset(dat, id == p_num & session == s_num & block == b_num & trial == t_num)
+}
+
+
+
 ### Functions for plotting single trials ###
 
 # Plots a stimulus or tracing as a series of points, w/ optional colour coding
 
-plot_figure_pts <- function(px, py, col = FALSE) {
+plot_figure_pts <- function(px, py, col = FALSE, path = FALSE) {
   hide_legend <- length(col) == 1
   dat <- data.frame(x = px, y = py, color = col)
-  ggplot(dat, aes(x = x, y = y, color = color)) +
-    geom_point(alpha = 0.5) +
+  plt <- ggplot(dat, aes(x = x, y = y))
+  if (path & nrow(dat) > 1) {
+    plt <- plt + geom_path(color = "grey80")
+  }
+  plt +
+    geom_point(alpha = 0.5, aes(color = color)) +
     scale_x_continuous(expand = c(0, 0), limits = c(0, screen_res[1])) +
     scale_y_reverse(expand = c(0, 0), limits = c(screen_res[2], 0)) +
     coord_fixed() +
@@ -121,18 +135,45 @@ plot_trials <- function(trials, samples, color_code = NULL, outdir = ".") {
       paste0("b", vals$block), paste0("t", vals$trial),
       sep = "_"
     ), ".pdf")
-    tmp <- subset(samples,
-      id == vals$id &
-      session == vals$session &
-      block == vals$block &
-      trial == vals$trial
-    )
+    tmp <- get_trial(samples, vals$id, vals$session, vals$block, vals$trial)
     if (is.null(color_code)) {
-      plt <- plot_figure_pts(tmp$x, tmp$y)
+      plt <- plot_figure_pts(tmp$x, tmp$y, path = TRUE)
     } else {
       tmp$col <- with(tmp, eval(parse(text = color_code)))
-      plt <- plot_figure_pts(tmp$x, tmp$y, tmp$col)
+      plt <- plot_figure_pts(tmp$x, tmp$y, tmp$col, path = TRUE)
     }
     ggsave(fname, plt, path = outdir, width = 11, height = 6)
+  }
+}
+
+
+# Renders PDFs of all trials in a summary data frame to a given output path,
+# overlaying the trial's tracing points/path on top of its figure animation
+# frames/path.
+
+plot_trial_paths <- function(trials, frames, samples, outdir = ".") {
+
+  # Create output dir, deleting first if it already exists
+  if (outdir != ".") {
+    if (dir.exists(outdir)) {
+      unlink(outdir, recursive = TRUE)
+    }
+    dir.create(outdir, recursive = TRUE)
+  }
+
+  # Render and save a PDF plot for each trial in trials
+  for (i in 1:nrow(trials)) {
+    vals <- trials[i, ]
+    fname <- paste0(paste(
+      paste0("p", vals$id), paste0("s", vals$session),
+      paste0("b", vals$block), paste0("t", vals$trial),
+      sep = "_"
+    ), ".pdf")
+    tf <- get_trial(frames, vals$id, vals$session, vals$block, vals$trial)
+    tt <- get_trial(samples, vals$id, vals$session, vals$block, vals$trial)
+    suppressWarnings({
+      plt <- plot_tracing_pts(tf$x, tf$y, tt$x, tt$y, path = TRUE)
+      ggsave(fname, plt, path = outdir, width = 11, height = 6)
+    })
   }
 }

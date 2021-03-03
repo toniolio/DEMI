@@ -263,7 +263,9 @@ incomplete_trials <- responsedat %>%
   filter(incomplete)
 
 if (plot_filters) {
-  plot_trials(incomplete_trials, responsedat, "done", "./filters/incomplete")
+  plot_trial_paths(
+    incomplete_trials, frames, responsedat, "./filters/incomplete"
+  )
 }
 trial_key <- c("id", "session", "block", "trial")
 responsedat <- anti_join(responsedat, incomplete_trials, by = trial_key)
