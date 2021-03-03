@@ -145,7 +145,10 @@ responsedat <- anti_join(responsedat, no_shape_trials, by = trial_key)
 
 responsedat <- responsedat %>%
   mutate(timediff = ifelse(is.na(lag(time)), 0, time - lag(time))) %>%
-  mutate(done = trial_done(origin.dist, timediff, done_filter_params))
+  mutate(done1 = trial_done(origin.dist, timediff, done_filter_params)) %>%
+  mutate(done2 = trial_done(origin.dist, timediff, done_filter_params2)) %>%
+  mutate(done = done1 | done2) %>%
+  select(-c(done1, done2))
 
 failed_end_trials <- responsedat %>%
   summarize(
@@ -167,18 +170,25 @@ responsedat <- subset(responsedat, !done)
 responsedat <- responsedat %>%
   mutate(angle_diff = (get_angle_diffs(x - lag(x), y - lag(y)) / pi) * 180) %>%
   mutate(
-    glitch = is_glitch(x, y, angle_diff, origin.dist, glitch_filter_params)
+    glitch_xy = (x == 239 & y == 1079),
+    glitch = is_glitch(x, y, angle_diff, origin.dist, glitch_filter_params),
+    glitch = glitch | glitch_xy
   )
 
 glitch_trials <- responsedat %>%
   summarize(
     samples = n(),
-    glitches = sum(glitch)
+    glitches = sum(glitch),
+    non_xy_glitches = sum(glitch & !(x == 239 & y == 1079))
   ) %>%
   filter(glitches > 0)
 
 if (plot_filters) {
   plot_trials(glitch_trials, responsedat, "glitch", "./filters/glitch")
+  plot_trials(
+    subset(glitch_trials, non_xy_glitches > 0), responsedat, "glitch",
+    "./filters/glitch_not_on_point"
+  )
 }
 responsedat <- subset(responsedat, !glitch)
 

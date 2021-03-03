@@ -28,7 +28,7 @@ plot_filters <- TRUE
 #    refers to whichever dimension is largest (height or width).
 
 no_shape_params <- list(
-  min_size_ratio = 6
+  min_size_ratio = 5
 )
 
 
@@ -63,11 +63,23 @@ no_shape_params <- list(
 done_filter_params <- list(
   origin_radius = 50,
   end_radius = 400,
-  pause_radius = 400,
-  min_prop = 0.6,
+  pause_radius = 200,
+  min_prop = 0.62,
   end_prop = 0.82,
   min_pause = 0.100
 )
+
+# For this dataset, we do a second pass of this filter with different parameters
+
+done_filter_params2 <- list(
+  origin_radius = 50,
+  end_radius = 400,
+  pause_radius = 200,
+  min_prop = 0.62,
+  end_prop = 0.55,
+  min_pause = 0.400
+)
+
 
 
 ## Touchscreen Glitch Filter
@@ -99,9 +111,9 @@ done_filter_params <- list(
 #    point to be glitch).
 
 glitch_filter_params <- list(
-  min_angle_diff = 90,
+  min_angle_diff = 88,
   min_angle_diff_alt = 70,
-  min_dist = 100
+  min_dist = 173
 )
 
 
