@@ -19,8 +19,8 @@
 
 ### Running the pipeline
 
-1. First, copy or move the contents of the BIDS-formatted dataset to the project's `bids` folder (to convert the loose EDF data to an organized BIDS dataset, you can use the `edf2bids.py` script as described below).
-2. Navigate to the project folder in a terminal window.
+1. First, copy or move the contents of the BIDS-formatted dataset to the project's `_Preprocessing/bids` folder (to convert the loose EDF data to an organized BIDS dataset, you can use the `edf2bids.py` script as described below).
+2. Navigate to the `_Preprocessing` folder in a terminal window.
 3. Run `pipenv install` at the terminal prompt (NOTE: if using a Python version other than 3.7, you may need to modify the project's Pipfile accordingly first). This will create a clean virtual environment for the project and install all the pipeline's dependencies within it.
 4. When you're ready, run `pipenv run python eeg_pipeline.py` in the terminal to start the process.
 5. Wait for several hours as the pipeline completes!
@@ -39,8 +39,8 @@ At present, the `edf2bids.py` script ignores all split EDFs, as well as any EDFs
 
 The pipeline produces three forms of output:
 
-1. The preprocessed EEG data in EDF+ format, located in the `output/eeg` folder
-2. Plots visualizing the effects of the preprocessing steps, located in the `output/plots` folder
-3. Data on the preprocessing for all particpants, located in the `output/prep_info.csv` file
+1. The preprocessed EEG data in EDF+ format, located in the `_Data/eeg/edfs` folder
+2. Plots visualizing the effects of the preprocessing steps, located in the `_Preprocessing/output/plots` folder
+3. Data on the preprocessing for all particpants, located in the `_Data/eeg/prep_info.csv` and `_Preprocessing/output/prep_info.csv` files
 
-Sessions flagged as unusable due to excessive noise or problems with ICA removal of blinks are saved as MNE `.fif` files in the `output/bads/too_noisy` and `output/bads/ica_err` folders, respectively. This allows partially-processed problem files to be inspected manually if needed.
+Sessions flagged as unusable due to excessive noise or problems with ICA removal of blinks are saved as MNE `.fif` files in the `_Preprocessing/output/bads/too_noisy` and `_Preprocessing/output/bads/ica_err` folders, respectively. This allows partially-processed problem files to be inspected manually if needed.

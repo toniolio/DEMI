@@ -1,0 +1,3 @@
+# Ignore EEG data files
+**/*.edf
+**/*.csv

@@ -42,12 +42,18 @@ datatype = 'eeg'
 bids_root = 'bids'
 output_root = 'output'
 
-outdir = os.path.join(output_root, 'eeg')
+# Local output
 plotdir = os.path.join(output_root, 'plots')
-badsdir = os.path.join(outdir, 'bad')
+badsdir = os.path.join(output_root, 'bad')
 noisy_bad_dir = os.path.join(badsdir, 'too_noisy')
 ica_err_dir = os.path.join(badsdir, 'ica_err')
 info_file = os.path.join(output_root, 'prep_info.csv')
+
+# Pipeline output
+pipeline_root = os.path.realpath('..')
+outdir = os.path.join(pipeline_root, '_Data', 'eeg')
+outdir_edf = os.path.join(outdir, 'edfs')
+outdir_info_file = os.path.join(outdir, 'prep_info.csv')
 
 perform_csd = True
 interpolate_bads = True
@@ -391,7 +397,7 @@ def preprocess_eeg(id_num, random_seed=None):
             os.makedirs(noisy_bad_dir)
         outpath = os.path.join(noisy_bad_dir, outfile_fmt.format(id_num))
     else:
-        outpath = os.path.join(outdir, outfile_fmt.format(id_num))
+        outpath = os.path.join(outdir_edf, outfile_fmt.format(id_num))
     write_mne_edf(outpath, raw_prepped)
     
     print("\n\n### sub-{0} complete! ###\n\n".format(id_num))
@@ -407,6 +413,9 @@ if not os.path.isdir(output_root):
 
 if not os.path.isdir(outdir):
     os.mkdir(outdir)
+
+if not os.path.isdir(outdir_edf):
+    os.mkdir(outdir_edf)
 
 if not os.path.isdir(plotdir):
     os.mkdir(plotdir)
@@ -424,16 +433,16 @@ elif os.path.getsize(info_file) > 0:
         info_csv = csv.DictReader(f)
         processed_ids = [row['id'] for row in info_csv]
 
-first_id = len(processed_ids) == 0
-with open(info_file, 'a', newline='') as outfile:
-    writer = csv.writer(outfile)
-    print("")
-    for sub in ids:
-        if sub in processed_ids:
-            print(" - sub-{0} already processed, skipping...\n".format(sub))
-            continue
-        info = preprocess_eeg(sub, random_seed=seed)
-        if first_id:
-            writer.writerow(list(info.keys()))
-            first_id = False
-        writer.writerow(list(info.values()))
+print("")
+for sub in ids:
+    if sub in processed_ids:
+        print(" - sub-{0} already processed, skipping...\n".format(sub))
+        continue
+    info = preprocess_eeg(sub, random_seed=seed)
+    for filepath in [info_file, outdir_info_file]:
+        with open(filepath, 'a', newline='') as outfile:
+            writer = csv.writer(outfile)
+            add_header = outfile.tell() == 0
+            if add_header:
+                writer.writerow(list(info.keys()))
+            writer.writerow(list(info.values()))
