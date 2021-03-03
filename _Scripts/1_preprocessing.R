@@ -311,6 +311,17 @@ edge_trials <- responsedat %>%
   filter(hit_top_edge | hit_bottom_edge | hit_left_edge | hit_right_edge)
 
 
+# Update metrics for response data, drop unneeded columns
+
+responsedat <- responsedat %>%
+  mutate(
+    timediff = ifelse(is.na(lag(time)), 0, time - lag(time)),
+    angle_diff = (get_angle_diffs(x - lag(x), y - lag(y)) / pi) * 180,
+    dist = line_length(lag(x), lag(y), x, y)
+  ) %>%
+  select(-c(done, glitch, false_start, hnoise, gap))
+
+
 
 ### Prepare tracing & figure data for accuracy analysis ###
 
