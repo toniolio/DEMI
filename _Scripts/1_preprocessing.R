@@ -453,6 +453,7 @@ err_eqd_proc <- figtrace_equidist %>%
 
 figtrace_dtw <- figtrace %>%
   group_by(id, session, block, trial) %>%
+  filter(sum(!is.na(x)) < (sum(!is.na(trace.x)) * 2)) %>%
   group_modify(~ dtw2df(.$x, .$y, .$trace.x, .$trace.y))
 
 
