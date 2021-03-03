@@ -1,0 +1,22 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pylint = "*"
+mnelab = "*"
+
+[packages]
+mne = "0.21.2"
+mne_bids = "0.6"
+numexpr = "*"
+pyprep = {git = "https://github.com/sappelhoff/pyprep.git", ref = "447634eff3d2d7e49916d8073f46c75d6c9443d3"}
+python-picard = {git = "https://github.com/pierreablin/picard.git", ref = "f40b97e600bfe6140eec9e5346934e6032a669ad"}
+statsmodels = "*"
+psutil = "*"
+matplotlib = "3.3.2"
+PyQt5 = "*"
+
+[requires]
+python_version = "3.7"
