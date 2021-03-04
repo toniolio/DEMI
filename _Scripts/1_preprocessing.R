@@ -519,3 +519,17 @@ fulldat <- taskdat %>%
   left_join(tracesummary, by = merge_key)
 
 fulldat$fig_id <- NULL
+
+# Save main data
+saveRDS(fulldat, "_scripts/_rds/bdat.rds")
+
+# Save ancillary data
+saveRDS(figtrace, "_scripts/_rds/figtrace.rds")
+saveRDS(no_shape_trials, "_scripts/_rds/diagnostics/no_shape_trials.rds")
+saveRDS(failed_end_trials, "_scripts/_rds/diagnostics/failed_end_trials.rds")
+saveRDS(glitch_trials, "_scripts/_rds/diagnostics/glitch_trials.rds")
+saveRDS(false_starts, "_scripts/_rds/diagnostics/false_starts.rds")
+saveRDS(hand_noise_trials, "_scripts/_rds/diagnostics/hand_noise_trials.rds")
+saveRDS(incomplete_trials, "_scripts/_rds/diagnostics/incomplete_trials.rds")
+saveRDS(gap_trials, "_scripts/_rds/diagnostics/gap_trials.rds")
+saveRDS(edge_trials, "_scripts/_rds/diagnostics/edge_trials.rds")
