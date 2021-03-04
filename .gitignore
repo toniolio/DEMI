@@ -9,3 +9,4 @@ filter*
 **/*.fif
 _Preprocessing/output/*
 _Preprocessing/raw/*
+.Rproj.user
