@@ -7,7 +7,7 @@ library(tidyverse)
 library(cmdstanr)
 
 (
-	'rds/bdat.rds'
+	'_Scripts/_rds/bdat.rds'
 	%>% readRDS()
 	%>% dplyr::filter(
 		condition == "imagery"
@@ -63,7 +63,7 @@ library(cmdstanr)
 	)
 )
 
-mod = cmdstanr::cmdstan_model('_stan/outlier_mixture.stan')
+mod = cmdstanr::cmdstan_model('_Scripts/_stan/outlier_mixture.stan')
 fit = mod$sample(
 	data = tibble::lst(
 		obs = dat$obs
@@ -246,3 +246,25 @@ criterion = 5
 		return(x)
 	})
 ) -> dat_with_est
+
+bad_imagery_trials <- (
+	dat_with_est
+	%>% dplyr::filter(
+		label != 'all_data'
+		, (label == 'fast' | label == 'unreasonable')
+	)
+	%>% dplyr::select(
+		figure_file
+	)
+)
+saveRDS(bad_imagery_trials, '_Scripts/_rds/diagnostics/bad_imagery_trials.rds')
+
+bdat <- readRDS('_Scripts/_rds/bdat.rds')
+
+bdat2 <- (
+	bdat
+	%>% dplyr::filter(
+		!(figure_file %in% as.list(bad_imagery_trials$figure_file))
+	)
+)
+saveRDS(bdat2, '_Scripts/_rds/bdat2.rds')
