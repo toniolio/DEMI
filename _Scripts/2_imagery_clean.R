@@ -258,13 +258,3 @@ bad_imagery_trials <- (
 	)
 )
 saveRDS(bad_imagery_trials, '_Scripts/_rds/diagnostics/bad_imagery_trials.rds')
-
-bdat <- readRDS('_Scripts/_rds/bdat.rds')
-
-bdat2 <- (
-	bdat
-	%>% dplyr::filter(
-		!(figure_file %in% as.list(bad_imagery_trials$figure_file))
-	)
-)
-saveRDS(bdat2, '_Scripts/_rds/bdat2.rds')
