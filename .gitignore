@@ -13,4 +13,5 @@ filter*
 **/*.fif
 _Preprocessing/output/*
 _Preprocessing/raw/*
+_Scripts/_rds/*
 .Rproj.user
