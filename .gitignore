@@ -2,7 +2,11 @@
 filter*
 !**/.gitignore
 **/*.RData
+**/*.rdata
 **/*.Rds
+**/*.rds
+**/*.Rda
+**/*.rda
 **/*.Rproj*
 
 **/*.edf
