@@ -1,9 +1,11 @@
 **/.*
 filter*
 !**/.gitignore
+**/*.RData
+**/*.Rds
+**/*.Rproj*
+
 **/*.edf
 **/*.fif
 _Preprocessing/output/*
 _Preprocessing/raw/*
-.Rproj.user
-DEMI_Analysis_Pipeline.Rproj
