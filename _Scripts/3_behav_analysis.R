@@ -439,6 +439,8 @@ summary(AA.blmm.1)
 # perceived accuracy ~ speed * complexity #
 #-----------------------------------------#
 
+# for both groups, but leaving out repeated trials (as they don't vary complexity much)
+
 # visualize perceived accuracy predicted by speed:
 
 ggplot(data = subset(dat, (rep == 0))
@@ -505,14 +507,19 @@ AA.blmm.2 <- (
 )
 summary(AA.blmm.2)
 
-# according to this R2 estimate... accuracy_rating is actually better predicted
+# like actual error, perceived accuracy is predicted by both complexity and
+# speed but there is no interaction between complexity and speed. This is good
+# evidence that perceived accuracy is capturing a similar phenomenon as error,
+# one that is dependent on known drivers of task performance.
+
+# according to the R2 estimate... accuracy_rating is actually better predicted
 # by speed and complexity than actual error? this estimate of R2 must leave out
 # random effects / correlations because participants obviously vary more here
 # than observed in the actual error data.
 
-#----------------------------#
-# perceived accuracy ~ error #
-#----------------------------#
+#-------------------------------------------------#
+# perceived accuracy ~ error (physical condition) #
+#-------------------------------------------------#
 
 # visualize perceived accuracy predicted by actual error:
 
@@ -566,3 +573,35 @@ AA.blmm.3 <- (
 summary(AA.blmm.3)
 
 # R2 of .55 is quite good validation of this likert scale, I think.
+
+
+#-------------------------------------------------------------#
+# perceived accuracy ~ speed * complexity (imagery condition) #
+#-------------------------------------------------------------#
+
+# note that must use stimulus velocity, and not participant actual velocity
+# try again with stimulus_mt?
+
+AA.blmm.4 <- (
+	dat
+	%>% dplyr::filter(
+		condition == 'imagery'
+		# , rep == 0 # this doesn't change results much, but note complexity in rep == 1 doesn't vary much
+	)
+	%>% brms::brm(
+		formula = (
+			scale(accuracy_rating) ~ scale(sinuosity) * scale(avg_velocity) + (1 + scale(sinuosity) * scale(avg_velocity) | participant)
+		)
+		, data = .
+		, silent = F
+		, refresh = 20
+		, chains = 4
+		, iter = 2000
+		, cores = 4
+	)
+)
+summary(AA.blmm.4)
+
+# Results are as expected — not different from above models (perceived accuracy ~ speed * complexity)
+# showing that, just like actual error, perceived accuracy is predicted by
+# both speed and complexity, but speed and complexity do not interact.
