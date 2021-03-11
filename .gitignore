@@ -9,6 +9,9 @@ filter*
 **/*.rda
 **/*.Rproj*
 
+_Scripts/_stan/*
+!_Scripts/_stan/*.stan
+
 **/*.edf
 **/*.fif
 _Preprocessing/output/*
