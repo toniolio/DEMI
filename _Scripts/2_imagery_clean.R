@@ -257,4 +257,4 @@ bad_imagery_trials <- (
 		figure_file
 	)
 )
-saveRDS(bad_imagery_trials, '_Scripts/_rds/diagnostics/bad_imagery_trials.rds')
+saveRDS(bad_imagery_trials, '_Scripts/_rds/bad_imagery_trials.rds')

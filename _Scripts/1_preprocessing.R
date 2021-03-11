@@ -202,7 +202,8 @@ responsedat <- responsedat %>%
 false_starts <- responsedat %>%
   summarize(
     samples = n(),
-    flagged = sum(false_start)
+    flagged = sum(false_start),
+    start_shift = time[!false_start][1]
   ) %>%
   filter(flagged > 0)
 
@@ -326,6 +327,7 @@ edge_trials <- responsedat %>%
 
 responsedat <- responsedat %>%
   mutate(
+    time = time - time[1], # ensure first time is 0.0
     timediff = ifelse(is.na(lag(time)), 0, time - lag(time)),
     angle_diff = (get_angle_diffs(x - lag(x), y - lag(y)) / pi) * 180,
     dist = line_length(lag(x), lag(y), x, y)
@@ -520,16 +522,21 @@ fulldat <- taskdat %>%
 
 fulldat$fig_id <- NULL
 
-# Save main data
-saveRDS(fulldat, "_scripts/_rds/bdat.rds")
 
-# Save ancillary data
-saveRDS(figtrace, "_scripts/_rds/figtrace.rds")
-saveRDS(no_shape_trials, "_scripts/_rds/diagnostics/no_shape_trials.rds")
-saveRDS(failed_end_trials, "_scripts/_rds/diagnostics/failed_end_trials.rds")
-saveRDS(glitch_trials, "_scripts/_rds/diagnostics/glitch_trials.rds")
-saveRDS(false_starts, "_scripts/_rds/diagnostics/false_starts.rds")
-saveRDS(hand_noise_trials, "_scripts/_rds/diagnostics/hand_noise_trials.rds")
-saveRDS(incomplete_trials, "_scripts/_rds/diagnostics/incomplete_trials.rds")
-saveRDS(gap_trials, "_scripts/_rds/diagnostics/gap_trials.rds")
-saveRDS(edge_trials, "_scripts/_rds/diagnostics/edge_trials.rds")
+# Cache main and ancillary script output for future runs
+
+trace_filter_info <- list(
+  no_shape = no_shape_trials,
+  failed_end = failed_end_trials,
+  glitch = glitch_trials,
+  false_start = false_starts,
+  hand_noise = hand_noise_trials,
+  incomplete = incomplete_trials,
+  large_gap = gap_trials,
+  hit_edge = edge_trials
+)
+
+saveRDS(fulldat, "./_Scripts/_rds/bdat.rds")
+saveRDS(tracings, "./_Scripts/_rds/tracings.rds")
+saveRDS(figtrace, "./_Scripts/_rds/figtrace.rds")
+saveRDS(trace_filter_info, "./_Scripts/_rds/trace_filter_info.rds")

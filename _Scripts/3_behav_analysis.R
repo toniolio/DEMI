@@ -5,7 +5,7 @@ library(tidyverse)
 
 # load data
 dat <- readRDS('_Scripts/_rds/bdat.rds')
-bad_imagery_trials <- readRDS('_Scripts/_rds/diagnostics/bad_imagery_trials.rds')
+bad_imagery_trials <- readRDS('_Scripts/_rds/bad_imagery_trials.rds')
 # note that bad physical trials have error metrics and mt_clip as NA
 
 #### SETUP DATA ####
