@@ -2,6 +2,18 @@
 ### TraceLab Analysis Configuration File ###
 ############################################
 
+### DEMI-Specific Settings ###
+
+# Whether or not interpolated channels should be dropped
+drop_interpolated <- FALSE
+
+# Whether or not EEG data has been Current Source Density (CSD) processed
+using_csd <- TRUE
+
+# The frequency bins (in Hz) to use for wavelet-decomposition of the EEG signal
+wt_frequencies <- 1:48
+
+
 
 ### General Settings ###
 
