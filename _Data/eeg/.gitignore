@@ -1,3 +1,4 @@
 # Ignore EEG data files
 **/*.edf
 **/*.csv
+!BESA-81.csv
