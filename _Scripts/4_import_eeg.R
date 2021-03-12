@@ -43,12 +43,18 @@ eeg_files <- list.files(
 
 
 # Get names of interpolated & excessively noisy channels from PREP pipeline info
+# Note: If data is CSD-processed, bad channels have already been dropped
 
 bad_chans_by_id <- prep_info %>%
   select(c(id, remaining_bad)) %>%
   separate_rows(remaining_bad, sep = " ") %>%
   filter(!is.na(remaining_bad)) %>%
   rename(bad_ch = remaining_bad)
+
+if (using_csd) {
+  bad_chans_by_id <- bad_chans_by_id %>%
+    filter(is.na(id))
+}
 
 if (drop_interpolated) {
   interpolated_chans_by_id <- prep_info %>%
