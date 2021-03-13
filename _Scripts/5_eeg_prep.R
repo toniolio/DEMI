@@ -122,22 +122,22 @@ eeg_wt_files <- list.files(
 all_dat <- NULL
 
 cat("\n### Combining wavelet-transformed EEG for all participants ###\n")
-for (f in eeg_wt_files) {
+all_dat <- data.table::rbindlist(
 
-  id_num <- as.integer(gsub("\\D", "", basename(f)))
-  cat("\n# Merging EEG data from participant", id_num, "...\n")
+  lapply(eeg_wt_files, function(f) {
 
-  if (f == eeg_wt_files[1]) {
-    all_dat <- readRDS(f)[, id := id_num]
+    id_num <- as.integer(gsub("\\D", "", basename(f)))
+    cat("\n# Loading EEG data from participant", id_num, "...\n")
+    out <- readRDS(f)[, id := id_num]
 
-  } else {
-    all_dat <- data.table::rbindlist(list(
-      current = all_dat,
-      new = readRDS(f)[, id := id_num]
-    ))
+    if (f == tail(eeg_wt_files, n = 1)) {
+      cat("\n# Merging EEG data from all participants...\n")
+    }
 
-  }
-}
+    out
+  })
+)
+
 
 
 # Make some variable integers to reduce memory demands
@@ -179,8 +179,6 @@ all_dat <- all_dat[bdat_merge,
   )
 ]
 
-setcolorder(all_dat, c("id", "group", "trial", "condition", "rep"))
-
 
 # Add spatial electrode coordinate info for each channel
 
@@ -192,9 +190,16 @@ eegcoords <- eegcoords %>%
   mutate(
     lat = 90 - (asin(z) * (180 / pi)),
     long = atan2(y, x) * (180 / pi)
-  )
+  ) %>%
+  as.data.table()
 
 all_dat <- all_dat[eegcoords, on = c("chan"), `:=`(lat = lat, long = long)]
+
+
+# Clean up column names & order
+
+setcolorder(all_dat, c("id", "group", "trial", "condition", "rep"))
+setnames(all_dat, "id", "participant")
 
 
 # Write out giant merged data frame to Rds for modelling and plotting
