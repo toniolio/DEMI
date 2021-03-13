@@ -49,7 +49,7 @@ dat$rep <- ifelse(dat$figure_type=="random", 0, 1) # random = 0 ; repeated = 1
 # choose measure of complexity
 dat$complexity <- dat$sinuosity # note publication used totabscurv
 # choose measure of physical error
-dat$error <- dat$raw_err_mean
+dat$error <- dat$dtw_err_mean
 
 # update mt with mt_clip where applicable
 dat$mt <- ifelse(!is.na(dat$mt_clip),dat$mt_clip,dat$mt)
