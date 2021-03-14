@@ -122,7 +122,7 @@ if (file.exists(cached_eeg_path)) {
 
     # Actually read in EDF data
     cat(paste0("\nImporting and epoching ", basename(f), "...\n\n"))
-    eeg <- read_edf(f, event_ch = "EDF Annotations")
+    eeg <- read_edf(f)
     id_num <- as.numeric(gsub("\\D", "", basename(f)))
 
     # Update EEG triggers using behavioural data, dropping practice trials and
