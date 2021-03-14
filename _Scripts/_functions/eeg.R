@@ -303,8 +303,8 @@ update_events <- function(eeg_events, epoch_offsets) {
   eeg_hz <- attributes(eeg_events$.initial)$sampling_rate
   new_events <- new_events %>%
     mutate(
-      .initial = as_sample_int(.initial, sampling_rate = eeg_hz, unit = "ms"),
-      .final = as_sample_int(.final, sampling_rate = eeg_hz, unit = "ms")
+      .initial = as_sample_int(.initial, sampling_rate = eeg_hz, .unit = "ms"),
+      .final = as_sample_int(.final, sampling_rate = eeg_hz, .unit = "ms")
     )
 
   new_events <- data.table(new_events)
