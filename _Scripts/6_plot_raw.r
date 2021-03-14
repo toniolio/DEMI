@@ -256,7 +256,7 @@ plot_group_participants = function(this_group_data,path){
 	# ) -> this_group_data
 
 	#prepare the directory structure
-	path_list = c('plots','raw_time_freq_space_power',this_group_data$group[1])
+	path_list = c('plots','raw_power',this_group_data$group[1])
 	for(i in 1:length(path_list)){
 		path = paste(path_list[1:i],collapse='/')
 		if(!dir.exists(path)){
