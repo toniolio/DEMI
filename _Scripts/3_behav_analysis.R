@@ -1,5 +1,7 @@
-	## Detecting Errors in Motor Imagery (DEMI) ##
-	 ## descriptives and behavioural analyses ##
+#############################################
+### Descriptives and behavioural analyses ###
+#############################################
+
 
 library(tidyverse)
 # library(lme4)
