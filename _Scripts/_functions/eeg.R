@@ -95,7 +95,8 @@ wavelet_transform <- function(time, signal, freqs, trim = c(1, 1)) {
 # epoch time for a single participant, optionally trimming padding and
 # downsampling data by a factor of 10. Can be very slow without downsampling.
 
-wavelet_transform_id <- function(eeg_signal, freqs, trim, downsample = TRUE) {
+wavelet_transform_id <- function(
+  eeg_signal, freqs, trim, baseline = NULL, downsample = TRUE) {
 
   trials <- unique(eeg_signal$trial)
   ch_names <- setdiff(names(eeg_signal), c("trial", "epoch", "time"))
@@ -116,9 +117,18 @@ wavelet_transform_id <- function(eeg_signal, freqs, trim, downsample = TRUE) {
         trim = trim
       )
 
+      # If a baseline window was provided, get & append the mean baseline power
+      if (length(baseline) == 2) {
+        t1 <- baseline[1]
+        t2 <- baseline[2]
+        baseline_pwr <- dt_wt[time >= t1 & time <= t2, lapply(.SD, mean)]
+        baseline_pwr$time <- NA  # NA here means baseline average
+        dt_wt <- data.table::rbindlist(list(dt_wt, baseline_pwr))
+      }
+
       # Downsample wavelet transformed data by 10x
       if (downsample) {
-        keep <- dt_wt[, .I %% 10 == 1]
+        keep <- dt_wt[, .I %% 10 == 1] | is.na(dt_wt$time)
         dt_wt <- dt_wt[keep]
       }
 
@@ -146,6 +156,16 @@ wavelet_transform_id <- function(eeg_signal, freqs, trim, downsample = TRUE) {
     value.name = "power"
   )
   out[, freq := as.numeric(freq)]
+
+  # If baseline provided, calculate dB-normalized power per trial/chan/frequency
+  if (length(baseline) == 2) {
+    freq_key <- c("trial", "chan", "freq")
+    baseline_pwr <- out[is.na(time)]
+    setnames(baseline_pwr, "power", "avg_power")
+    out <- out[!is.na(time)][baseline_pwr, on = freq_key, baseline := avg_power]
+    out[, powerdb := 10 * (log10(power) - log10(baseline))]
+    out[, baseline := NULL]
+  }
 
   out
 }

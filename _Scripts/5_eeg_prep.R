@@ -43,33 +43,25 @@ for (id in subject_ids) {
   # Convert "time" to seconds
   epoched$time <- as.double(epoched$time) / 1000
 
-  # Perform wavelet decomposition on baseline data
-  cat("\n# Performing wavelet decomposition on baseline epochs\n")
-  is_baseline <- epoched$epoch == "baseline"
-  baseline_wt <- wavelet_transform_id(
-    eeg_signal = epoched[is_baseline, ],
-    freqs = wt_frequencies,
-    trim = c(1, 1),
-    downsample = TRUE
-  )
-
-  # Perform wavelet decomposition on tracing data
+  # Perform wavelet decomposition & dB normalization on tracing data
   cat("\n# Performing wavelet decomposition on tracing epochs\n")
   is_tracing <- epoched$epoch == "tracing"
   tracing_wt <- wavelet_transform_id(
     eeg_signal = epoched[is_tracing, ],
     freqs = wt_frequencies,
     trim = c(1, 1),
+    baseline = c(-0.5, -0.2),
     downsample = TRUE
   )
 
-  # Perform wavelet decomposition on post-tracing data
+  # Perform wavelet decomposition & dB normalization on post-tracing data
   cat("\n# Performing wavelet decomposition on post-tracing epochs\n")
   is_post_trace <- epoched$epoch == "post_trace"
   post_trace_wt <- wavelet_transform_id(
     eeg_signal = epoched[is_post_trace, ],
     freqs = wt_frequencies,
     trim = c(1, 1),
+    baseline = c(-0.5, -0.2),
     downsample = TRUE
   )
 
@@ -79,25 +71,15 @@ for (id in subject_ids) {
     post_trace = post_trace_wt
   ), idcol = "epoch")
 
-  # Remove intermediate objects to free up memory
-  rm(epoched, tracing_wt, post_trace_wt)
-
-  # Decibel-normalize the power data using baseline epoch
-  # Note: If using CSD, resulting units will be (mV/m^2)^2/Hz (dB)
-  cat("\n# Decibel-normalizing power using mean baseline epoch power...\n")
-  freq_key <- c("trial", "chan", "freq")
-  baseline_pwr <- baseline_wt[, .(avg_pwr = mean(power)), by = freq_key]
-  epoched_wt <- epoched_wt[baseline_pwr, on = freq_key, baseline_pwr := avg_pwr]
-  epoched_wt[, powerdb := 10 * (log10(power) - log10(baseline_pwr))]
-  epoched_wt[, baseline_pwr := NULL]
-
   # Save Rds of data for future modelling and clear data objects from memory
   cat("\n# Saving data to .Rds...\n")
   outfile <- paste0(participants_rds_path, id, "_eeg_processed.rds")
   setcolorder(epoched_wt, c("trial", "epoch", "chan", "freq"))
   saveRDS(epoched_wt, file = outfile)
-  rm(epoched_wt, baseline_wt, baseline_pwr)
   cat("\n### Participant", id_num, "successfully processed! ###\n\n")
+
+  # Remove intermediate objects to free up memory
+  rm(epoched, epoched_wt, tracing_wt, post_trace_wt)
 }
 
 
