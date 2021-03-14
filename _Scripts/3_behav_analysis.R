@@ -61,6 +61,11 @@ saveRDS(dat, '_Scripts/_rds/bdat2.rds')
 
 #### Participant Characterization ####
 
+# which participants in each group (check)
+
+unique(sort(subset(dat, group =='physical')$participant))
+unique(sort(subset(dat, group =='imagery')$participant))
+
 # age:
 
 print("mean (sd) age for all participants:")
