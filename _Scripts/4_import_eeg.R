@@ -142,21 +142,21 @@ if (file.exists(cached_eeg_path)) {
     # Extract baseline, tracing, and post-tracing epochs from EEG
     eeg_baseline <- eeg %>%
       eeg_segment(
-        .description == "red_on", lim = c(-4001, 0), unit = "ms"
+        .description == "red_on", .lim = c(-4001, 0), .unit = "ms"
       )
     eeg_tracing <- eeg %>%
       eeg_segment(
-        .description == "real_trace_start", lim = c(-1501, 2500), unit = "ms"
+        .description == "real_trace_start", .lim = c(-1501, 2500), .unit = "ms"
       )
     eeg_post_trace <- eeg %>%
       eeg_segment(
-        .description == "real_trace_end", lim = c(-1501, 2500), unit = "ms"
+        .description == "real_trace_end", .lim = c(-1501, 2500), .unit = "ms"
       )
 
     # Epoch EMG data
     epoched_emg <- emg %>%
       eeg_segment(
-        .description == "stim_on", end = .description == "red_on"
+        .description == "stim_on", .end = .description == "red_on"
       )
 
     # Join trial numbers to epochs
