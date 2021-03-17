@@ -152,6 +152,7 @@ all_dat <- all_dat[bdat_merge,
   `:=`(
     group = group,
     condition = condition,
+    block_num = block_num,
     rep = rep,
     complexity = complexity,
     avg_velocity = avg_velocity,
