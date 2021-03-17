@@ -19,6 +19,9 @@ scale_to_0range = function(x,range=1){
 	# '_Scripts/_rds/all_dat_first_participant.rds'
 	%>% readRDS()
 	%>% as_tibble()
+	%>% dplyr::filter(
+		!(group == 'imagery' & condition == 'physical')
+	)
 	%>% mutate(
 		time = time + (2 * (epoch - 1))
 	)
