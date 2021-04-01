@@ -92,6 +92,87 @@ if(!file.exists(paste(path, "dat_MI_test.rds", sep=""))){
 		)
 	)
 
+	#### flip lefties ####
+
+	dat <- (
+		readRDS('_Scripts/_rds/bdat2.rds')
+		%>% mutate(participant=as.character(participant))
+		%>% group_by(
+			participant
+		)
+		%>% summarize(
+			handedness = handedness[1]
+			, .groups = 'drop'
+		)
+		%>% right_join(
+			dat	%>% mutate(participant=as.character(participant))
+			, by = 'participant'
+		)
+		%>% dplyr::mutate(
+			x = lat*cos(long*(pi/180))
+			, y = lat*sin(long*(pi/180))
+		)
+		%>% dplyr::mutate(
+			x = case_when(
+				handedness=='l' ~ -x
+				, T ~ x
+			)
+		)
+		%>% dplyr::mutate(
+			long = atan2(y, x) * (180 / pi)
+		)
+		%>% dplyr::select(
+			-x, -y, -handedness
+		)
+	)
+
+	# code for plotting to check
+	# (
+	# 	dat
+	# 	%>% dplyr::filter(
+	# 		participant == 16 # 16 = left handed, 19 = right handed
+	# 		, trial == 2
+	# 	)
+	# 	%>% ggplot()
+	# 	+ geom_text(
+	# 		mapping = aes(
+	# 			x = long
+	# 			, y = lat
+	# 			, label = chan
+	# 		)
+	# 	)
+	# 	+coord_polar(theta='x')
+	# 	+scale_y_continuous(
+	# 		limits = c(0,180)
+	# 		, expand = c(0,0)
+	# 	)
+	# 	+scale_x_continuous(
+	# 		limits = c(-180,180)
+	# 		, expand = c(0,0)
+	# 	)
+	# )
+
+	#### ensure proper data types and labels ####
+
+	dat$band <- as.factor(dat$band)
+	dat$epoch <- as.factor(ifelse(dat$epoch==1, "during", "after"))
+	dat$rep <- as.factor(ifelse(dat$rep==0, "random", "repeated"))
+	dat$participant <- as.factor(dat$participant)
+	dat$chan <- as.factor(dat$chan)
+	(
+		dat
+		%>% dplyr::mutate(
+			block = dplyr::case_when(
+				(trial>=1) & (trial<=20) ~ 1
+				, (trial>=21) & (trial<=40) ~ 2
+				, (trial>=41) & (trial<=60) ~ 3
+				, (trial>=61) & (trial<=80) ~ 4
+				, (trial>=81) & (trial<=100) ~ 5
+				, (trial>=101) & (trial<=120) ~ 6
+			)
+		)
+	) -> dat
+
 	#### set up training and test sets ####
 
 	# separate PP vs MI data sets
