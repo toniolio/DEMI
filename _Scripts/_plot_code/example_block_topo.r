@@ -59,8 +59,8 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		#polar to cartesian then re-scaled versions
 		x = lat*cos(long*(pi/180))
 		, y = lat*sin(long*(pi/180))
-		, x_scaled = scale_to_0range(x,10)
-		, y_scaled = scale_to_0range(y,10)
+		, x_scaled = scale_to_0range(x,9) #9 makes the plot 10x10 bc 1x1 panels will be centered on these
+		, y_scaled = scale_to_0range(y,9)
 
 		#here we find the min & max if we were to plot all the data in one panel
 		, min_lo = min(lo)
@@ -68,6 +68,7 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		, lo_scaled = (lo-min_lo)/range_ - .5
 		, hi_scaled = (hi-min_lo)/range_ - .5
 		, mid_scaled = (mid-min_lo)/range_ - .5
+
 
 		# now get the global y-position given the subpanel location and subpanel's scaled y-axis data
 		, to_plot_lo = y_scaled + lo_scaled
@@ -88,7 +89,36 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 	#save as new object so we don't have to re-run the above if we make mistakes or tweaks below
 ) -> ready_to_plot
 
+
+#compute some quantities for the axes panel
+#whole plot is 10x10 units centered on zero
+y_axis_y_offset = -4
+y_axis_x_offset = -4
+y_axis_dat = tibble(
+	label = seq(ready_to_plot$min_lo[1],ready_to_plot$min_lo[1]+ready_to_plot$range_[1],length.out=3)
+	, y_scaled = c(0,.5,1)
+	, to_plot_y = y_scaled -.5 + y_axis_y_offset
+	, to_plot_x = rep(0,3) + y_axis_x_offset
+)
+x_axis_y_offset = y_axis_y_offset-.5
+x_axis_x_offset = y_axis_x_offset+.5
+x_axis_dat = tibble(
+	label = c('1','','','','5','')
+	, x_scaled = seq(0,1,length.out=6)
+	, to_plot_x = x_scaled -.5 + x_axis_x_offset
+	, to_plot_y = rep(0,length(label)) + x_axis_y_offset
+)
+axis_title_dat = tibble(
+	label = c('Relative power\n(log-dB)','Block')
+	, x = c(y_axis_x_offset-.5,x_axis_x_offset)
+	, y = c(y_axis_y_offset,x_axis_y_offset-.3)
+	, angle = c(90,0)
+	, hjust = c('center','center')
+	, vjust = c('bottom','top')
+)
+
 #start plotting!
+
 (
 	ready_to_plot
 	%>% ggplot()
@@ -105,6 +135,96 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		)
 		, fill = 'grey90'
 		, colour = 'transparent'
+	)
+
+	# y-axis panel
+	+ geom_line(
+		data = y_axis_dat
+		, aes(
+			x = to_plot_x
+			, y = to_plot_y
+		)
+	)
+	+ geom_line(
+		data = (
+			y_axis_dat
+			%>% mutate(
+				xmin = to_plot_x-.1
+				, xmax = to_plot_x
+			)
+			%>% select(-to_plot_x)
+			%>% pivot_longer(
+				cols = c(xmin,xmax)
+				, values_to = 'to_plot_x'
+			)
+		)
+		, aes(
+			x = to_plot_x
+			, y = to_plot_y
+			, group = label
+		)
+	)
+	+ geom_text(
+		data = y_axis_dat
+		, aes(
+			x = to_plot_x-.1
+			, y = to_plot_y
+			, label = paste(format(label,digits=2),' ')
+		)
+		, hjust = 'right'
+		, size = 2
+	)
+	# x-axis line
+	+ geom_line(
+		data = x_axis_dat
+		, aes(
+			x = to_plot_x
+			, y = to_plot_y
+		)
+	)
+	# x-axis ticks
+	+ geom_line(
+		data = (
+			x_axis_dat
+			%>% mutate(
+				ymin = to_plot_y-.1
+				, ymax = to_plot_y
+			)
+			%>% select(-to_plot_y)
+			%>% pivot_longer(
+				cols = c(ymin,ymax)
+				, values_to = 'to_plot_y'
+			)
+		)
+		, aes(
+			x = to_plot_x
+			, y = to_plot_y
+			, group = interaction(label,x_scaled)
+		)
+	)
+	#x-axis labels
+	+ geom_text(
+		data = x_axis_dat
+		, aes(
+			x = to_plot_x
+			, y = to_plot_y-.15
+			, label = label
+		)
+		, vjust = 'top'
+		, size = 2
+	)
+	#axis titles
+	+ geom_text(
+		data = axis_title_dat
+		, aes(
+			x = x
+			, y = y
+			, label = label
+			, angle = angle
+			, hjust = hjust
+			, vjust = vjust
+		)
+		, size = 3
 	)
 	# render the uncertainty intervals
 	# (could use geom_errorbar instead)
@@ -139,10 +259,11 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		, panel.grid = element_blank()
 		, panel.background = element_rect(fill='transparent',colour='grey90')
 	)
-	#now save (weird to have a + instead of %>%, I know)
-	+ ggsave(
-		file = '_plots/examples_block_topo.pdf'
-		, width = 10
-		, height = 10
-	)
+)
+
+#now save
+ggsave(
+	file = '_plots/examples_block_topo.pdf'
+	, width = 10
+	, height = 10
 )
