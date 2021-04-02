@@ -16,9 +16,6 @@ scale_to_0range = function(x,range=1){
 preds_dat = readRDS('_rds/preds_dat.rds')
 
 
-
-# example main-effect-topo plot: block topo ----
-
 #get the data to plot
 (
 	# start with the full preds
@@ -28,11 +25,17 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		lat
 		, long
 		, block
-		, sample
+		, sample  #Notice that sample isn't last this time!
+		, rep
 	)
-	# collapse to a mean, dropping sample from the grouping thereafter
+	# collapse to a mean, dropping REP from the grouping thereafter
 	%>% summarise(
 		value = mean(value)
+		, .groups = 'drop_last'
+	)
+	# collapse to a difference across rep, droping sample from the grouping thereafter
+	%>% summarise(
+		value = value[rep=='0'] - value[rep=='1']
 		, .groups = 'drop_last'
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
@@ -68,12 +71,13 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		, lo_scaled = (lo-min_lo)/range_ - .5
 		, hi_scaled = (hi-min_lo)/range_ - .5
 		, mid_scaled = (mid-min_lo)/range_ - .5
-
+		, zero_scaled = (0-min_lo)/range_ - .5 #############For when zero is interesting!
 
 		# now get the global y-position given the subpanel location and subpanel's scaled y-axis data
 		, to_plot_lo = y_scaled + lo_scaled
 		, to_plot_hi = y_scaled + hi_scaled
 		, to_plot_mid = y_scaled + mid_scaled
+		, to_plot_zero = y_scaled + zero_scaled
 
 		####
 		# Content of this section will change depending on variables in the plot
@@ -136,6 +140,7 @@ axis_title_dat = tibble(
 		, fill = 'grey90'
 		, colour = 'transparent'
 	)
+
 	# y-axis line
 	+ geom_line(
 		data = y_axis_dat
@@ -236,7 +241,6 @@ axis_title_dat = tibble(
 			, ymin = to_plot_lo
 			, ymax = to_plot_hi
 			, group = interaction(lat,long)
-			, fill = factor(1)# can't remember why this is here
 		)
 		, alpha = .5
 	)
@@ -250,12 +254,34 @@ axis_title_dat = tibble(
 		)
 		, alpha = .5
 	)
+
+	# line at zero
+	+ geom_line(
+		data = (
+			ready_to_plot
+			%>% group_keys(lat,long,x_scaled,to_plot_zero)
+			%>% mutate(
+				xmin = x_scaled-.5
+				, xmax = x_scaled+.5
+			)
+			%>% select(-x_scaled)
+			%>% pivot_longer(
+				cols = c(xmin,xmax)
+				, values_to = 'to_plot_x'
+			)
+		)
+		, aes(
+			x = to_plot_x
+			, y = to_plot_zero
+			, group = interaction(lat,long)
+		)
+		, colour = 'white'
+	)
+
+
 	+ coord_equal() #important to make subpanel locations accurate
 	+ theme(
-		legend.position = 'none'
-		, legend.justification = c(0,0)
-		, legend.title = element_blank()
-		, axis.title = element_blank()
+		axis.title = element_blank()
 		, axis.ticks = element_blank()
 		, axis.text = element_blank()
 		, panel.grid = element_blank()
@@ -265,7 +291,7 @@ axis_title_dat = tibble(
 
 #now save
 ggsave(
-	file = '_plots/example_block_topo.pdf'
+	file = '_plots/example_block_by_rep_topo_diff.pdf'
 	, width = 10
 	, height = 10
 )

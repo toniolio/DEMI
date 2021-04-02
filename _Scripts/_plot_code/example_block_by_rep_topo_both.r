@@ -265,7 +265,7 @@ axis_title_dat = tibble(
 
 #now save
 ggsave(
-	file = '_plots/examples_block_by_rep_topo_both.pdf'
+	file = '_plots/example_block_by_rep_topo_both.pdf'
 	, width = 10
 	, height = 10
 )
