@@ -3,102 +3,6 @@
 ######################
 
 library(tidyverse)
-library(mgcv) #gam stuff
-library(modelr) #for data_grid
-library(Rfast) #for mat.mult & rmvnorm
-
-
-#generating predictions (and samples) ----
-
-#get the model
-path <- "_Scripts/_rds/"
-gam = readRDS(paste0(path, "gam.rds"))
-
-#extract the data and get the unique combinations of predictors
-(
-	gam$model
-	%>% modelr::data_grid(
-		group
-		, band
-		, epoch
-		, rep
-		, block
-		# get just the first and last quintile points for accuracy
-		, accuracy = quantile(accuracy,probs=c(.2,.8))
-		# nesting gets just those combos in the data
-		, nesting(
-			#round both to eliminate numeric drift from ealier conversions
-			round(lat)
-			, round(long)
-		)
-	)
-	#renaming
-	%>% rename(
-		lat = `round(lat)`
-		, long = `round(long)`
-	)
-	%>% filter(
-		!((lat==0) & (long==180))
-	)
-) -> preds_dat
-
-#double-checking the locations
-(
-	preds_dat
-	%>% group_keys(lat,long)
-	%>% arrange(lat,long)
-	%>% print(n=40)
-	%>% invisible()
-)
-
-# get the model matrix implied by the preds & model structure
-mm = mgcv::predict.bam(
-	gam
-	, newdata = preds_dat
-	, type = 'lpmatrix'
-	, discrete = FALSE
-)
-
-#get the coefficients and covariance matrix
-f = coef(gam)
-v = vcov(gam)
-
-# get model predictions for the condition means
-# (weird name will make sense later)
-preds_dat$`...9` = Rfast::mat.mult(mm , matrix(f,nrow=length(f)))[,1]
-
-# sample the model to make uncertainty intervals easier
-num_samples = 1e3
-system.time(sample_coefs <- Rfast::rmvnorm(num_samples, f, v))
-system.time(sample_vals <- Rfast::mat.mult(mm,t(sample_coefs) ) )
-
-# bind together with preds_dat
-(
-	preds_dat
-	%>% bind_cols(
-		as_tibble(sample_vals,.name_repair='unique')
-		#names on this new tibble are `...X` where X is 10:(num_samples-10)
-	)
-	%>% pivot_longer(
-		cols = contains('...')
-		, names_to = 'sample'
-		, names_prefix = '...'
-		, names_transform = list(sample=as.integer)
-	)
-	%>% mutate(
-		sample = sample-9 #leaves the sample# for the means prediction as 0
-	)
-) -> preds_dat
-
-#save to file
-saveRDS(
-	preds_dat
-	, paste0(path,'preds_dat.rds')
-)
-
-
-# example main-effect-topo plot: block topo ----
-library(tidyverse)
 
 scale_to_0range = function(x,range=1){
 	x = x - min(x)
@@ -109,8 +13,11 @@ scale_to_0range = function(x,range=1){
 }
 
 #in case the preds haven't been loaded
-path <- "_Scripts/_rds/"
-preds_dat = readRDS(paste0(path,'preds_dat.rds'))
+preds_dat = readRDS('_rds/preds_dat.rds')
+
+
+
+# example main-effect-topo plot: block topo ----
 
 #get the data to plot
 (
@@ -234,7 +141,7 @@ preds_dat = readRDS(paste0(path,'preds_dat.rds'))
 	)
 	#now save (weird to have a + instead of %>%, I know)
 	+ ggsave(
-		file = paste0(path,'/_plots/examples_block_topo.pdf')
+		file = '_Scripts/_plots/examples_block_topo.pdf'
 		, width = 10
 		, height = 10
 	)
