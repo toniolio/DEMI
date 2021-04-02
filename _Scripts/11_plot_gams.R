@@ -141,7 +141,7 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 	)
 	#now save (weird to have a + instead of %>%, I know)
 	+ ggsave(
-		file = '_Scripts/_plots/examples_block_topo.pdf'
+		file = '_plots/examples_block_topo.pdf'
 		, width = 10
 		, height = 10
 	)
