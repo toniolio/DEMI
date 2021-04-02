@@ -16,9 +16,6 @@ scale_to_0range = function(x,range=1){
 preds_dat = readRDS('_rds/preds_dat.rds')
 
 
-
-# example main-effect-topo plot: block topo ----
-
 #get the data to plot
 (
 	# start with the full preds
@@ -28,6 +25,7 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		lat
 		, long
 		, block
+		, rep
 		, sample
 	)
 	# collapse to a mean, dropping sample from the grouping thereafter
@@ -136,6 +134,7 @@ axis_title_dat = tibble(
 		, fill = 'grey90'
 		, colour = 'transparent'
 	)
+
 	# y-axis line
 	+ geom_line(
 		data = y_axis_dat
@@ -235,8 +234,8 @@ axis_title_dat = tibble(
 			x = to_plot_x
 			, ymin = to_plot_lo
 			, ymax = to_plot_hi
-			, group = interaction(lat,long)
-			, fill = factor(1)# can't remember why this is here
+			, group = interaction(lat,long,rep)
+			, fill = rep
 		)
 		, alpha = .5
 	)
@@ -246,16 +245,17 @@ axis_title_dat = tibble(
 		mapping = aes(
 			x = to_plot_x
 			, y = to_plot_mid
-			, group = interaction(lat,long)
+			, group = interaction(lat,long,rep)
+			, colour = rep
 		)
 		, alpha = .5
 	)
 	+ coord_equal() #important to make subpanel locations accurate
 	+ theme(
-		legend.position = 'none'
-		, legend.justification = c(0,0)
-		, legend.title = element_blank()
-		, axis.title = element_blank()
+		# legend.position = 'none'
+		# , legend.justification = c(0,0)
+		# , legend.title = element_blank()
+		axis.title = element_blank()
 		, axis.ticks = element_blank()
 		, axis.text = element_blank()
 		, panel.grid = element_blank()
@@ -265,7 +265,7 @@ axis_title_dat = tibble(
 
 #now save
 ggsave(
-	file = '_plots/examples_block_topo.pdf'
+	file = '_plots/examples_block_by_rep_topo_both.pdf'
 	, width = 10
 	, height = 10
 )
