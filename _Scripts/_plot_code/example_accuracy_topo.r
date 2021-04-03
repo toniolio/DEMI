@@ -239,7 +239,6 @@ axis_title_dat = tibble(
 			, ymin = to_plot_lo
 			, ymax = to_plot_hi
 			, group = interaction(lat,long)
-			, fill = factor(1)# can't remember why this is here
 		)
 		, alpha = .5
 		, width = .125
