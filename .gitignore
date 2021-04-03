@@ -8,12 +8,11 @@ filter*
 **/*.Rda
 **/*.rda
 **/*.Rproj*
-
 _Scripts/_stan/*
 !_Scripts/_stan/*.stan
-
 **/*.edf
 **/*.fif
+**/*.pdf
 _Preprocessing/output/*
 _Preprocessing/raw/*
 _Scripts/_rds/*
