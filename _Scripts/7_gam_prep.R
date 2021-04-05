@@ -124,6 +124,14 @@ if(!file.exists(paste(path, "dat_MI_test.rds", sep=""))){
 		%>% dplyr::select(
 			-x, -y, -handedness
 		)
+		%>% dplyr::mutate(
+			lat = round(lat)
+			, long = round(long)
+			, long = case_when(
+				lat==0 ~ 0
+				, T ~ long
+			)
+		)
 	)
 
 	# code for plotting to check
@@ -151,6 +159,13 @@ if(!file.exists(paste(path, "dat_MI_test.rds", sep=""))){
 	# 		, expand = c(0,0)
 	# 	)
 	# )
+
+	# dat %>% count(lat, long) %>% print(n=50) # note that it jitters locations
+	# # need to flip chan label too...
+	# dat %>% group_by(chan) %>% summarise(
+	# 	mean(powerdb)
+	# 	, sd(powerdb)
+	# 	) %>% print(n=50)
 
 	#### ensure proper data types and labels ####
 
