@@ -18,3 +18,9 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 #see examples in `_plot_code`
 
 source('_plot_code/example_block_topo.r')
+
+library(diffr)
+diffr(
+	'_plot_code/example_block_by_rep_topo_both.r'
+	, '_plot_code/example_block_by_accuracy_topo_both.r'
+)

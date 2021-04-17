@@ -7,17 +7,17 @@ library(mgcv)
 
 path <- "_Scripts/_rds/"
 
-# dat_PP_train = readRDS(paste0(path, "dat_PP_train.rds"))
-# dat_MI_train = readRDS(paste0(path, "dat_MI_train.rds"))
-# dat_PP_test = readRDS(paste0(path, "dat_PP_test.rds"))
-# dat_MI_test = readRDS(paste0(path, "dat_MI_test.rds"))
+dat_PP_train = readRDS(paste0(path, "dat_PP_train.rds"))
+dat_MI_train = readRDS(paste0(path, "dat_MI_train.rds"))
+dat_PP_test = readRDS(paste0(path, "dat_PP_test.rds"))
+dat_MI_test = readRDS(paste0(path, "dat_MI_test.rds"))
 # gam_PP = readRDS(paste0(path, "gam_PP.rds"))
 # gam_MI = readRDS(paste0(path, "gam_MI.rds"))
 # gam_PP_summary = readRDS(paste0(path, "gam_PP_summary.rds"))
 # gam_MI_summary = readRDS(paste0(path, "gam_MI_summary.rds"))
 
 gam = readRDS(paste0(path, "gam.rds"))
-gam_summary = readRDS(paste0(path, "gam_summary.rds"))
+# gam_summary = readRDS(paste0(path, "gam_summary.rds"))
 
 # sapply(gam_PP$smooth, "[[",  "label")
 # sapply(gam_MI$smooth, "[[",  "label")
@@ -109,6 +109,7 @@ dat$block = dat$block-3
 					, newdata = dat
 					, discrete = F
 					, n.threads = parallel::detectCores()
+					# , exclude = "s(participant)"
 				)
 			)
 	)

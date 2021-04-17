@@ -9,13 +9,14 @@ library(Rfast) #for mat.mult & rmvnorm
 
 #get the model
 path <- "_Scripts/_rds/"
-gam = readRDS(paste0(path, "gam.rds"))
+gam = readRDS(paste0(path, "gam_re.rds"))
 
 #extract the data and get the unique combinations of predictors
 (
 	gam$model
 	%>% modelr::data_grid(
 		group
+		, participant
 		, band
 		, epoch
 		, rep
@@ -54,6 +55,7 @@ mm = mgcv::predict.bam(
 	, newdata = preds_dat
 	, type = 'lpmatrix'
 	, discrete = FALSE
+	, exclude = 's(participant)'
 )
 
 #get the coefficients and covariance matrix
@@ -93,5 +95,5 @@ preds_dat$lat = 90-preds_dat$lat
 #save to file
 saveRDS(
 	preds_dat
-	, paste0(path,'preds_dat.rds')
+	, paste0(path,'preds_dat_re.rds')
 )
