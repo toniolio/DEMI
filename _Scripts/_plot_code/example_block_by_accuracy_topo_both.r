@@ -14,40 +14,29 @@ scale_to_0range = function(x,range=1){
 
 #in case the preds haven't been loaded
 preds_dat = readRDS('_rds/preds_dat.rds')
-
+preds_dat$accuracy <- as.factor(preds_dat$accuracy)
 
 #get the data to plot
 (
 	# start with the full preds
 	preds_dat
 	%>%filter(
-		group == 'imagery' # physical, imagery
+		group == 'physical' # physical, imagery
 		, band == 'beta' # theta, alpha, beta
 		, epoch == 'after' # during, after
-		, block < max(block) # drop final block
+		, rep == 'repeated' # random, repeated
 	)
 	# group by the variables you want AND sample
 	%>% group_by(
 		lat
 		, long
 		, block
-		, sample  #Notice that sample isn't last this time!
-		, rep
 		, accuracy
+		, sample
 	)
-	# collapse to a mean, dropping REP from the grouping thereafter
+	# collapse to a mean, dropping sample from the grouping thereafter
 	%>% summarise(
 		value = mean(value)
-		, .groups = 'drop_last'
-	)
-	# collapse to a difference across epoch, droping rep from the grouping thereafter
-	%>% summarise(
-		value = value[which.min(accuracy)] - value[which.max(accuracy)]
-		, .groups = 'drop_last'
-	)
-	# collapse to a difference across rep, droping sample from the grouping thereafter
-	%>% summarise(
-		value = value[rep=='repeated'] - value[rep=='random']
 		, .groups = 'drop_last'
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
@@ -83,13 +72,12 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		, lo_scaled = (lo-min_lo)/range_ - .5
 		, hi_scaled = (hi-min_lo)/range_ - .5
 		, mid_scaled = (mid-min_lo)/range_ - .5
-		, zero_scaled = (0-min_lo)/range_ - .5 #############For when zero is interesting!
+
 
 		# now get the global y-position given the subpanel location and subpanel's scaled y-axis data
 		, to_plot_lo = y_scaled + lo_scaled
 		, to_plot_hi = y_scaled + hi_scaled
 		, to_plot_mid = y_scaled + mid_scaled
-		, to_plot_zero = y_scaled + zero_scaled
 
 		####
 		# Content of this section will change depending on variables in the plot
@@ -252,7 +240,8 @@ axis_title_dat = tibble(
 			x = to_plot_x
 			, ymin = to_plot_lo
 			, ymax = to_plot_hi
-			, group = interaction(lat,long)
+			, group = interaction(lat,long,accuracy)
+			, fill = accuracy
 		)
 		, alpha = .5
 	)
@@ -262,37 +251,16 @@ axis_title_dat = tibble(
 		mapping = aes(
 			x = to_plot_x
 			, y = to_plot_mid
-			, group = interaction(lat,long)
+			, group = interaction(lat,long,accuracy)
+			, colour = accuracy
 		)
 		, alpha = .5
 	)
-
-	# line at zero
-	+ geom_line(
-		data = (
-			ready_to_plot
-			%>% group_keys(lat,long,x_scaled,to_plot_zero)
-			%>% mutate(
-				xmin = x_scaled-.5
-				, xmax = x_scaled+.5
-			)
-			%>% select(-x_scaled)
-			%>% pivot_longer(
-				cols = c(xmin,xmax)
-				, values_to = 'to_plot_x'
-			)
-		)
-		, aes(
-			x = to_plot_x
-			, y = to_plot_zero
-			, group = interaction(lat,long)
-		)
-		, colour = 'white'
-	)
-
-
 	+ coord_equal() #important to make subpanel locations accurate
 	+ theme(
+		# legend.position = 'none'
+		# , legend.justification = c(0,0)
+		# , legend.title = element_blank()
 		axis.title = element_blank()
 		, axis.ticks = element_blank()
 		, axis.text = element_blank()
@@ -303,7 +271,7 @@ axis_title_dat = tibble(
 
 #now save
 ggsave(
-	file = '_plots/acc_diff_rep_diff_by_block_MI_beta_after.pdf'
+	file = '_plots/example_block_by_accuracy_topo_both.pdf'
 	, width = 10
 	, height = 10
 )

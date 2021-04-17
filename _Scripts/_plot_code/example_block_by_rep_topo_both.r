@@ -20,6 +20,12 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 (
 	# start with the full preds
 	preds_dat
+	%>%filter(
+		group == 'physical' # physical, imagery
+		, band == 'theta' # theta, alpha, beta
+		, epoch == 'after' # during, after
+		, accuracy == max(accuracy)
+	)
 	# group by the variables you want AND sample
 	%>% group_by(
 		lat

@@ -20,6 +20,12 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 (
 	# start with the full preds
 	preds_dat
+	%>%filter(
+		group == 'imagery' # physical, imagery
+		, band == 'beta' # theta, alpha, beta
+		, epoch == 'after' # during, after
+		, block < max(block) # drop final block
+	)
 	# group by the variables you want AND sample
 	%>% group_by(
 		lat
@@ -36,7 +42,7 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 	)
 	# collapse rep to a difference score, dropping sample from the grouping thereafter
 	%>% summarise(
-		value = value[which.max(accuracy)] - value[which.min(accuracy)]
+		value = value[which.min(accuracy)] - value[which.max(accuracy)]
 		, .groups = 'drop_last'
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
@@ -299,7 +305,7 @@ axis_title_dat = tibble(
 
 #now save
 ggsave(
-	file = '_plots/example_accuracy_diff_by_block_by_rep_topo_both.pdf'
+	file = '_plots/acc_diff_by_block_by_rep_MI_beta_after.pdf'
 	, width = 10
 	, height = 10
 )

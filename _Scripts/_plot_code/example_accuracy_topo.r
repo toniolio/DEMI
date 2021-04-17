@@ -23,6 +23,12 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 (
 	# start with the full preds
 	preds_dat
+	%>%filter(
+		group == 'imagery' # physical, imagery
+		, band == 'beta' # theta, alpha, beta
+		, epoch == 'after' # during, after
+		, block < max(block) # drop final block
+	)
 	# group by the variables you want AND sample
 	%>% group_by(
 		lat
@@ -275,7 +281,7 @@ axis_title_dat = tibble(
 
 #now save
 ggsave(
-	file = '_plots/example_accuracy_topo.pdf'
+	file = '_plots/accuracy_MI_beta_after.pdf'
 	, width = 10
 	, height = 10
 )
