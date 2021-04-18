@@ -56,7 +56,7 @@ outdir_edf = os.path.join(outdir, 'edfs')
 outdir_info_file = os.path.join(outdir, 'prep_info.csv')
 
 perform_csd = True
-interpolate_bads = True
+interpolate_bads = False
 max_interpolated = 0.25 # 25%
 outfile_fmt = 'sub-{0}_eeg_prepped.edf'
 
