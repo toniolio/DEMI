@@ -37,6 +37,7 @@ gam = readRDS(paste0(path, "gam_re.rds"))
 	)
 	%>% filter(
 		!((lat==0) & (long==180))
+		, participant==participant[1]
 	)
 ) -> preds_dat
 
@@ -64,7 +65,7 @@ v = vcov(gam)
 
 # get model predictions for the condition means
 # (weird name will make sense later)
-preds_dat$`...9` = Rfast::mat.mult(mm , matrix(f,nrow=length(f)))[,1]
+preds_dat$`...0` = Rfast::mat.mult(mm , matrix(f,nrow=length(f)))[,1]
 
 # sample the model to make uncertainty intervals easier
 num_samples = 1e3
@@ -83,9 +84,6 @@ system.time(sample_vals <- Rfast::mat.mult(mm,t(sample_coefs) ) )
 		, names_to = 'sample'
 		, names_prefix = '...'
 		, names_transform = list(sample=as.integer)
-	)
-	%>% mutate(
-		sample = sample-9 #leaves the sample# for the means prediction as 0
 	)
 ) -> preds_dat
 
