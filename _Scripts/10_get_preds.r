@@ -37,6 +37,7 @@ gam = readRDS(paste0(path, "gam_re.rds"))
 	)
 	%>% filter(
 		!((lat==0) & (long==180))
+		, participant==participant[1]
 	)
 ) -> preds_dat
 
