@@ -13,6 +13,10 @@ using_csd <- TRUE
 # The frequency bins (in Hz) to use for wavelet-decomposition of the EEG signal
 wt_frequencies <- 1:48
 
+# Whether to use the 4 seconds before each trial's onset as an EEG baseline
+# instead of the windows 500 ms to 200 ms before each epoch
+use_pretrial_baseline <- TRUE
+
 
 
 ### General Settings ###
@@ -60,7 +64,7 @@ no_shape_params <- list(
 #
 # - 'pause_radius': The maximum distance (in px) that the previous point can be
 #    from the origin for a sufficiently long pause (as defined by 'min_pause')
-#    to be considered a tracing end. 
+#    to be considered a tracing end.
 #
 # - 'min_prop': The minimum proportion of the tracing that needs to be complete
 #    before the tracing can be considered done.
@@ -237,7 +241,7 @@ hand_noise_params <- list(
 #    centered on the origin point: for example, a tracing where all samples are
 #    to the left of the origin would have a lateral shift of >= 1, whereas a
 #    a tracing centered directly on the origin would have a shift of 0. If a
-#    figure is fairly centered on origin but its tracing is not, this is a 
+#    figure is fairly centered on origin but its tracing is not, this is a
 #    good indicator of an accidental trial end.
 
 incomplete_params <- list(
