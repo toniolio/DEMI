@@ -41,12 +41,18 @@ dat$participant = factor(dat$participant)
 dat$group <- factor(dat$exp_condition)
 dat$condition <- factor(dat$condition)
 
+# make rep a factor:
+dat$rep <- ifelse(dat$figure_type=="random", 0, 1) # random = 0 ; repeated = 1
+dat$rep <- as.factor(ifelse(dat$rep==0, "random", "repeated")) # better label
+
+# simplify block name
+dat$block <- dat$block_num
+
 # create potentially useful dummy variables
 # note: recall difference between 'group' and 'condition'
 dat$grp <- ifelse(dat$group=="imagery",1,0) # physical group = 0 ; imagery group = 1
 dat$MI <- ifelse(dat$condition=="imagery", 1, 0) # is condition imagery = 1
 dat$PP <- ifelse(dat$condition=="physical", 1, 0) # is condition physical = 0
-dat$rep <- ifelse(dat$figure_type=="random", 0, 1) # random = 0 ; repeated = 1
 
 # choose measure of complexity
 dat$complexity <- dat$sinuosity # note publication used totabscurv
@@ -369,11 +375,7 @@ summary(MC.blmm.6)
 # times of the stimulus well.
 
 
-#### Error and Accuracy Analyses ####
-
-#----------------------------#
-# error ~ speed * complexity #
-#----------------------------#
+#### error ~ speed * complexity ####
 
 # visualize error as it is related to speed:
 
@@ -391,7 +393,7 @@ ggplot(data = subset(dat, (group == 'physical'))
 
 # visualize error as it is related to complexity:
 
-ggplot(data = subset(dat, (group == 'physical' & rep == 0))
+ggplot(data = subset(dat, (group == 'physical' & rep == 'random'))
 	   , mapping = aes(
 	   	x = sinuosity
 	   	, y = (dtw_err_mean*0.2715) # convert to mm
@@ -403,14 +405,27 @@ ggplot(data = subset(dat, (group == 'physical' & rep == 0))
 	theme_minimal()
 	# theme(aspect.ratio=4/4)
 
-# model relationship: error ~ speed * complexity
-# to confirm that error measure is sensible.
+# plot of both:
+
+ggplot(data = subset(dat, (group == 'physical' & rep == 'random'))
+	   , mapping = aes(
+	   	x = vresp
+	   	, y = sinuosity
+	   	, z = (dtw_err_mean*0.2715) # convert to mm
+	   )) + stat_summary_2d() +
+	# geom_point(shape = 1, col = 'white') +
+	# facet_wrap(~participant) +
+	theme_minimal()
+
+#----------------------------#
+# error ~ speed * complexity #
+#----------------------------#
 
 # AA.lmm.1 <- (
 # 	dat
 # 	%>% dplyr::filter(
 # 		condition == 'physical'
-# 		, rep == 0
+# 		, rep == 'random'
 # 	)
 # 	%>% lmer(
 # 		scale(dtw_err_mean) ~ scale(sinuosity) * scale(vresp) + (1 + scale(sinuosity) * scale(vresp) | participant)
@@ -425,8 +440,8 @@ ggplot(data = subset(dat, (group == 'physical' & rep == 0))
 AA.blmm.1 <- (
 	dat
 	%>% dplyr::filter(
-		condition == 'physical'
-		, rep == 0
+		condition == 'physical' # note this includes both groups
+		, rep == 'random'
 	)
 	%>% brms::brm(
 		formula = (
@@ -442,18 +457,16 @@ AA.blmm.1 <- (
 )
 summary(AA.blmm.1)
 
-#-----------------------------------------#
-# perceived accuracy ~ speed * complexity #
-#-----------------------------------------#
+#### perceived accuracy ~ speed * complexity ####
 
 # for both groups, but leaving out repeated trials (as they don't vary complexity much)
 
 # visualize perceived accuracy predicted by speed:
 
-ggplot(data = subset(dat, (rep == 0))
+ggplot(data = subset(dat, (rep == 'random'))
 	   , mapping = aes(
-	   	x = vresp # convert to mm
-	   	, y = scale(accuracy_rating) # NOTE: consider scaling!
+	   	x = vresp
+	   	, y = scale(accuracy_rating)
 	   )) + geom_point(na.rm = TRUE, alpha = .5) +
 	# facet_grid(. ~ figure_type) +
 	facet_wrap(~participant) +
@@ -465,10 +478,10 @@ ggplot(data = subset(dat, (rep == 0))
 
 # visualize perceived accuracy predicted by complexity:
 
-ggplot(data = subset(dat, (rep == 0))
+ggplot(data = subset(dat, (rep == 'random'))
 	   , mapping = aes(
-	   	x = sinuosity # convert to mm
-	   	, y = scale(accuracy_rating) # NOTE: consider scaling!
+	   	x = sinuosity
+	   	, y = scale(accuracy_rating)
 	   )) + geom_point(na.rm = TRUE, alpha = .5) +
 	# facet_grid(. ~ figure_type) +
 	facet_wrap(~participant) +
@@ -478,12 +491,27 @@ ggplot(data = subset(dat, (rep == 0))
 	# lims(y = c(0, 11)) # note outliers
 	# theme(aspect.ratio=4/4)
 
-# model perceived accuracy ~ speed * complexity
+# plot both
+
+ggplot(data = subset(dat, (group == 'physical' & rep == 'random'))
+	   , mapping = aes(
+	   	x = vresp
+	   	, y = sinuosity
+	   	, z = scale(accuracy_rating)
+	   )) + stat_summary_2d() +
+	# geom_point(shape = 1, col = 'white') +
+	# facet_wrap(~participant) +
+	theme_minimal()
+
+#-----------------------------------------#
+# perceived accuracy ~ speed * complexity #
+#-----------------------------------------#
 
 # AA.lmm.2 <- (
 # 	dat
 # 	%>% dplyr::filter(
-# 		rep == 0
+# 		rep == "random"
+#		, condition == "physical
 # 	)
 # 	%>% lmer(
 # 		scale(accuracy_rating) ~ scale(sinuosity) * scale(vresp) + (1 + scale(sinuosity) * scale(vresp) | participant)
@@ -495,10 +523,13 @@ ggplot(data = subset(dat, (rep == 0))
 # summary(AA.lmm.2)
 # r2.corr.mer(AA.lmm.2)
 
+# using trials for which there is an actual speed... (includes both groups because of final imagery block)
+
 AA.blmm.2 <- (
 	dat
 	%>% dplyr::filter(
-		rep == 0
+		rep == "random"
+		, condition == "physical"
 	)
 	%>% brms::brm(
 		formula = (
@@ -520,80 +551,20 @@ summary(AA.blmm.2)
 # one that is dependent on known drivers of task performance.
 
 # according to the R2 estimate... accuracy_rating is actually better predicted
-# by speed and complexity than actual error? this estimate of R2 must leave out
-# random effects / correlations because participants obviously vary more here
-# than observed in the actual error data.
+# by speed and complexity than actual error?
 
-#-------------------------------------------------#
-# perceived accuracy ~ error (physical condition) #
-#-------------------------------------------------#
-
-# visualize perceived accuracy predicted by actual error:
-
-ggplot(data = subset(dat, (condition == 'physical'))
-	   , mapping = aes(
-	   	x = (dtw_err_mean*0.2715) # convert to mm
-	   	, y = scale(accuracy_rating) # NOTE: consider scaling!
-	   )) + geom_point(na.rm = TRUE, alpha = .5) +
-	# facet_grid(. ~ figure_type) +
-	facet_wrap(~participant) +
-	geom_smooth(method = lm, na.rm = TRUE) +
-	# geom_density2d(na.rm = TRUE) +
-	theme_minimal() #+
-	# lims(y = c(0, 11)) # note outliers
-	# theme(aspect.ratio=4/4)
-
-# model perceived accuracy ~ error
-
-# AA.lmm.3 <- (
-# 	dat
-# 	%>% dplyr::filter(
-# 		condition == 'physical'
-# 	)
-# 	%>% lmer(
-# 		scale(accuracy_rating) ~ scale(dtw_err_mean) + (1 + scale(dtw_err_mean) | participant)
-# 		, data = .
-# 		# , REML = TRUE
-# 		# , control=glmerControl(optimizer="NM2")
-# 	)
-# )
-# summary(AA.lmm.3)
-# r2.corr.mer(AA.lmm.3)
-
-AA.blmm.3 <- (
-	dat
-	%>% dplyr::filter(
-		condition == 'physical'
-	)
-	%>% brms::brm(
-		formula = (
-			scale(accuracy_rating) ~ scale(dtw_err_mean) + (1 + scale(dtw_err_mean) | participant)
-		)
-		, data = .
-		, silent = F
-		, refresh = 20
-		, chains = 4
-		, iter = 2000
-		, cores = 4
-	)
-)
-summary(AA.blmm.3)
-
-# R2 of .55 is quite good validation of this likert scale, I think.
-
-
-#-------------------------------------------------------------#
-# perceived accuracy ~ speed * complexity (imagery condition) #
-#-------------------------------------------------------------#
+#--------------------------------------------------------#
+# perceived accuracy ~ speed * complexity (imagery only) #
+#--------------------------------------------------------#
 
 # note that must use stimulus velocity, and not participant actual velocity
 # try again with stimulus_mt?
 
-AA.blmm.4 <- (
+AA.blmm.3 <- (
 	dat
 	%>% dplyr::filter(
-		condition == 'imagery'
-		# , rep == 0 # this doesn't change results much, but note complexity in rep == 1 doesn't vary much
+		rep == 'random'
+		, condition == 'imagery'
 	)
 	%>% brms::brm(
 		formula = (
@@ -607,8 +578,135 @@ AA.blmm.4 <- (
 		, cores = 4
 	)
 )
-summary(AA.blmm.4)
+summary(AA.blmm.3)
 
 # Results are as expected — not different from above models (perceived accuracy ~ speed * complexity)
 # showing that, just like actual error, perceived accuracy is predicted by
 # both speed and complexity, but speed and complexity do not interact.
+
+#-------------------------------------------------#
+# perceived accuracy ~ speed * complexity * group #
+#-------------------------------------------------#
+
+AA.blmm.4c <- (
+	dat
+	%>% dplyr::filter(
+		rep == 'random'
+		, block < max(block)
+	)
+	%>% dplyr::mutate(
+		speed = scale(ifelse(condition == 'imagery', avg_velocity, vresp))
+	)
+	%>% brms::brm(
+		formula = (
+			scale(accuracy_rating) ~ group * scale(sinuosity) * speed + (1 + group * scale(sinuosity) * speed | participant)
+		)
+		, data = .
+		, silent = F
+		, refresh = 20
+		, chains = 4
+		, iter = 2000
+		, cores = 4
+		, control = list(adapt_delta = .95)
+	)
+)
+summary(AA.blmm.4c)
+
+
+
+#### perceived accuracy ~ error ####
+
+# visualize perceived accuracy predicted by actual error:
+
+ggplot(data = subset(dat, (condition == 'physical' & rep == 'random')) # but note that this shows you all imagery participants too
+	   , mapping = aes(
+	   	x = (dtw_err_mean*0.2715) # convert to mm
+	   	, y = scale(accuracy_rating) # NOTE: consider scaling!
+	   )) + geom_point(na.rm = TRUE, alpha = .5) +
+	# facet_grid(. ~ figure_type) +
+	facet_wrap(~participant) +
+	geom_smooth(method = lm, na.rm = TRUE) +
+	# geom_density2d(na.rm = TRUE) +
+	theme_minimal() #+
+	# lims(y = c(0, 11)) # note outliers
+	# theme(aspect.ratio=4/4)
+
+#-------------------------------------------------#
+# perceived accuracy ~ error (physical condition) #
+#-------------------------------------------------#
+
+# AA.lmm.5 <- (
+# 	dat
+# 	%>% dplyr::filter(
+# 		rep == "random"
+# 		, condition == 'physical'
+# 	)
+# 	%>% lmer(
+# 		scale(accuracy_rating) ~ scale(dtw_err_mean) + (1 + scale(dtw_err_mean) | participant)
+# 		, data = .
+# 		# , REML = TRUE
+# 		# , control=glmerControl(optimizer="NM2")
+# 	)
+# )
+# summary(AA.lmm.5)
+# r2.corr.mer(AA.lmm.5)
+
+# R2 of .55 is quite good validation of this likert scale, I think.
+
+AA.blmm.5 <- (
+	dat
+	%>% dplyr::filter(
+		rep == "random"
+		, condition == 'physical' # note this is for both groups
+	)
+	%>% brms::brm(
+		formula = (
+			scale(accuracy_rating) ~ scale(dtw_err_mean) + (1 + scale(dtw_err_mean) | participant)
+		)
+		, data = .
+		, silent = F
+		, refresh = 20
+		, chains = 4
+		, iter = 2000
+		, cores = 4
+	)
+)
+summary(AA.blmm.5)
+
+#------------------------------------#
+# perceived accuracy ~ error * group #
+#------------------------------------#
+
+# note you have way less imagery data...)
+
+AA.blmm.6 <- (
+	dat
+	%>% dplyr::filter(
+		rep == "random"
+		, condition == 'physical' # note this is for both groups
+	)
+	%>% brms::brm(
+		formula = (
+			scale(accuracy_rating) ~ scale(dtw_err_mean) * group + (1 + scale(dtw_err_mean) * group | participant)
+		)
+		, data = .
+		, silent = F
+		, refresh = 20
+		, chains = 4
+		, iter = 2000
+		, cores = 4
+	)
+)
+summary(AA.blmm.6)
+
+# no significant interaction between group and error, and no group main effect
+
+#### error ~ block ####
+
+# does performance improve across blocks?
+
+
+
+
+
+
