@@ -2,18 +2,10 @@
 ### Descriptives and behavioural analyses ###
 #############################################
 
-
 library(tidyverse)
 # library(lme4)
 # library(lmerTest)
 library(brms)
-
-# TO DO: ifexists bdat2.rds stuff
-
-# load data
-dat <- readRDS('_Scripts/_rds/bdat.rds')
-bad_imagery_trials <- readRDS('_Scripts/_rds/bad_imagery_trials.rds')
-# note that bad physical trials have error metrics and mt_clip as NA
 
 r2.corr.mer <- function(m) {
 	lmfit <-  lm(model.response(model.frame(m)) ~ fitted(m))
@@ -23,47 +15,56 @@ r2.corr.mer <- function(m) {
 
 #### SETUP DATA ####
 
-# remove pilot participants and bad trials
-dat <- (
-	dat
-	%>% dplyr::filter(
-		participant < 500 # remove pilot participants
-		, !(condition == 'physical' & is.na(mt_clip)) # remove bad physical trials
-		, !(figure_file %in% as.list(bad_imagery_trials$figure_file)) # remove bad imagery trials
+if(!file.exists(paste0("_Scripts/_rds/bdat2.rds"))){
+	# load data
+	dat <- readRDS('_Scripts/_rds/bdat.rds')
+	bad_imagery_trials <- readRDS('_Scripts/_rds/bad_imagery_trials.rds')
+	# note that bad physical trials have error metrics and mt_clip as NA
+
+	# remove pilot participants and bad trials
+	dat <- (
+		dat
+		%>% dplyr::filter(
+			participant < 500 # remove pilot participants
+			, !(condition == 'physical' & is.na(mt_clip)) # remove bad physical trials
+			, !(figure_file %in% as.list(bad_imagery_trials$figure_file)) # remove bad imagery trials
+		)
 	)
-)
-rm(bad_imagery_trials)
+	rm(bad_imagery_trials)
 
-# make participant a factor
-dat$participant = factor(dat$participant)
+	# make participant a factor
+	dat$participant = factor(dat$participant)
 
-# clarify group vs condition
-dat$group <- factor(dat$exp_condition)
-dat$condition <- factor(dat$condition)
+	# clarify group vs condition
+	dat$group <- factor(dat$exp_condition)
+	dat$condition <- factor(dat$condition)
 
-# make rep a factor:
-dat$rep <- ifelse(dat$figure_type=="random", 0, 1) # random = 0 ; repeated = 1
-dat$rep <- as.factor(ifelse(dat$rep==0, "random", "repeated")) # better label
+	# make rep a factor:
+	dat$rep <- ifelse(dat$figure_type=="random", 0, 1) # random = 0 ; repeated = 1
+	dat$rep <- as.factor(ifelse(dat$rep==0, "random", "repeated")) # better label
 
-# simplify block name
-dat$block <- dat$block_num
+	# create potentially useful dummy variables
+	# note: recall difference between 'group' and 'condition'
+	dat$grp <- ifelse(dat$group=="imagery",1,0) # physical group = 0 ; imagery group = 1
+	dat$MI <- ifelse(dat$condition=="imagery", 1, 0) # is condition imagery = 1
+	dat$PP <- ifelse(dat$condition=="physical", 1, 0) # is condition physical = 0
 
-# create potentially useful dummy variables
-# note: recall difference between 'group' and 'condition'
-dat$grp <- ifelse(dat$group=="imagery",1,0) # physical group = 0 ; imagery group = 1
-dat$MI <- ifelse(dat$condition=="imagery", 1, 0) # is condition imagery = 1
-dat$PP <- ifelse(dat$condition=="physical", 1, 0) # is condition physical = 0
+	# choose measure of complexity
+	dat$complexity <- dat$sinuosity # note publication used totabscurv
+	# choose measure of physical error
+	dat$error <- dat$dtw_err_mean
 
-# choose measure of complexity
-dat$complexity <- dat$sinuosity # note publication used totabscurv
-# choose measure of physical error
-dat$error <- dat$dtw_err_mean
+	# update mt with mt_clip where applicable
+	dat$mt <- ifelse(!is.na(dat$mt_clip),dat$mt_clip,dat$mt)
 
-# update mt with mt_clip where applicable
-dat$mt <- ifelse(!is.na(dat$mt_clip),dat$mt_clip,dat$mt)
+	# save for later analyses
+	saveRDS(dat, '_Scripts/_rds/bdat2.rds')
+}
 
-# save for later analyses
-saveRDS(dat, '_Scripts/_rds/bdat2.rds')
+# for these stats specifically
+halfsum_contrasts = function (...) contr.sum(...) * 0.5
+contrasts(dat$group) = halfsum_contrasts
+contrasts(dat$condition) = halfsum_contrasts
 
 #### Participant Characterization ####
 
@@ -588,18 +589,18 @@ summary(AA.blmm.3)
 # perceived accuracy ~ speed * complexity * group #
 #-------------------------------------------------#
 
-AA.blmm.4c <- (
+AA.blmm.4b <- (
 	dat
 	%>% dplyr::filter(
 		rep == 'random'
-		, block < max(block)
+		# , block_num < max(block_num) # could also try doing by condition
 	)
 	%>% dplyr::mutate(
 		speed = scale(ifelse(condition == 'imagery', avg_velocity, vresp))
 	)
 	%>% brms::brm(
 		formula = (
-			scale(accuracy_rating) ~ group * scale(sinuosity) * speed + (1 + group * scale(sinuosity) * speed | participant)
+			scale(accuracy_rating) ~ condition * scale(sinuosity) * speed + (1 + condition * scale(sinuosity) * speed | participant)
 		)
 		, data = .
 		, silent = F
@@ -607,12 +608,12 @@ AA.blmm.4c <- (
 		, chains = 4
 		, iter = 2000
 		, cores = 4
-		, control = list(adapt_delta = .95)
+		, control = list(adapt_delta = .9)
 	)
 )
-summary(AA.blmm.4c)
+summary(AA.blmm.4b)
 
-
+# interpret...
 
 #### perceived accuracy ~ error ####
 
