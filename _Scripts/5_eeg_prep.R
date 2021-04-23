@@ -171,7 +171,7 @@ all_dat[, epoch := ifelse(epoch == "tracing", 1L, 2L)]
 # Merge behavioural data with EEG data
 
 cols_to_merge <- c(
-  "id", "group", "trial", "condition", "rep", "complexity",
+  "id", "group", "trial", "block_num", "condition", "rep", "complexity",
   "avg_velocity", "error", "vresp", "accuracy_rating"
 )
 
@@ -190,8 +190,8 @@ all_dat <- all_dat[bdat_merge,
   on = c("id", "trial"),
   `:=`(
     group = group,
-    condition = condition,
     block_num = block_num,
+    condition = condition,
     rep = rep,
     complexity = complexity,
     avg_velocity = avg_velocity,
@@ -220,7 +220,7 @@ all_dat <- all_dat[eegcoords, on = c("chan"), `:=`(lat = lat, long = long)]
 
 # Clean up column names & order
 
-setcolorder(all_dat, c("id", "group", "trial", "condition", "rep"))
+setcolorder(all_dat, c("id", "group", "block_num", "trial", "condition", "rep", "epoch"))
 setnames(all_dat, "id", "participant")
 
 
