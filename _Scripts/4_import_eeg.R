@@ -142,7 +142,7 @@ if (file.exists(cached_eeg_path)) {
     # Extract baseline, tracing, and post-tracing epochs from EEG
     eeg_baseline <- eeg %>%
       eeg_segment(
-        .description == "red_on", .lim = c(-1000, 1500), .unit = "ms"
+        .description == "red_on", .lim = c(-1500, 800), .unit = "ms" # one second is trimmed off each end, and the rest is averaged for the baseline
       )
     eeg_tracing <- eeg %>%
       eeg_segment(
