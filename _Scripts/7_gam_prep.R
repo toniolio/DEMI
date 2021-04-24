@@ -171,7 +171,7 @@ if(!file.exists(paste(path, "dat_MI_test.rds", sep=""))){
 
 	dat$band <- as.factor(dat$band)
 	dat$epoch <- as.factor(ifelse(dat$epoch==1, "during", "after"))
-	dat$rep <- as.factor(ifelse(dat$rep==0, "random", "repeated"))
+	dat$rep <- as.factor(ifelse(dat$rep==1, "random", "repeated"))
 	dat$participant <- as.factor(dat$participant)
 	dat$chan <- as.factor(dat$chan)
 	(
