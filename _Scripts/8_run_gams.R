@@ -273,6 +273,7 @@ rm(dat_PP_train,dat_MI_train)
 # dat_train$epoch <- as.factor(ifelse(dat_train$epoch==1, "during", "after"))
 halfsum_contrasts = function (...) contr.sum(...) * 0.5
 contrasts(dat_train$group) = halfsum_contrasts
+contrasts(dat_train$condition) = halfsum_contrasts
 contrasts(dat_train$band) = halfsum_contrasts
 contrasts(dat_train$epoch) = halfsum_contrasts
 contrasts(dat_train$rep) = halfsum_contrasts
