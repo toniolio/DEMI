@@ -13,7 +13,7 @@ scale_to_0range = function(x,range=1){
 }
 
 #in case the preds haven't been loaded
-preds_dat = readRDS('_rds/preds_dat.rds')
+preds_dat = readRDS('_rds/preds_dat_re.rds')
 
 
 
@@ -23,6 +23,10 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 (
 	# start with the full preds
 	preds_dat
+	%>%filter(
+		group == 'physical' # physical, imagery
+		, epoch == 'during' # during, after
+	)
 	# group by the variables you want AND sample
 	%>% group_by(
 		lat
