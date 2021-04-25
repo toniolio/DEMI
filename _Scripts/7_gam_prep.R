@@ -134,39 +134,6 @@ if(!file.exists(paste(path, "dat_MI_test.rds", sep=""))){
 		)
 	)
 
-	# code for plotting to check
-	# (
-	# 	dat
-	# 	%>% dplyr::filter(
-	# 		participant == 16 # 16 = left handed, 19 = right handed
-	# 		, trial == 2
-	# 	)
-	# 	%>% ggplot()
-	# 	+ geom_text(
-	# 		mapping = aes(
-	# 			x = long
-	# 			, y = lat
-	# 			, label = chan
-	# 		)
-	# 	)
-	# 	+coord_polar(theta='x')
-	# 	+scale_y_continuous(
-	# 		limits = c(0,180)
-	# 		, expand = c(0,0)
-	# 	)
-	# 	+scale_x_continuous(
-	# 		limits = c(-180,180)
-	# 		, expand = c(0,0)
-	# 	)
-	# )
-
-	# dat %>% count(lat, long) %>% print(n=50) # note that it jitters locations
-	# # need to flip chan label too...
-	# dat %>% group_by(chan) %>% summarise(
-	# 	mean(powerdb)
-	# 	, sd(powerdb)
-	# 	) %>% print(n=50)
-
 	#### ensure proper data types and labels ####
 
 	dat$band <- as.factor(dat$band)
