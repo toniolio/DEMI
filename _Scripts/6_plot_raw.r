@@ -20,7 +20,7 @@ scale_to_0range = function(x,range=1){
 	%>% readRDS()
 	%>% as_tibble()
 	%>% dplyr::filter(
-		!(group == 'imagery' & condition == 'physical')
+		!(group == 'imagery' & condition == 'physical') # for imagery participants, leave out the physical block
 	)
 	%>% mutate(
 		time = time + (2 * (epoch - 1))
