@@ -87,6 +87,9 @@ system.time(sample_vals <- Rfast::mat.mult(mm,t(sample_coefs) ) )
 	)
 ) -> preds_dat
 
+#ensuring geographic lat/long (important for plots)
+preds_dat$lat = 90-preds_dat$lat
+
 #save to file
 saveRDS(
 	preds_dat
