@@ -267,7 +267,10 @@ dat_train <- rbind(dat_PP_train
 )
 rm(dat_PP_train,dat_MI_train)
 
-# consider moving this to previous script
+# consider moving all of below to previous script
+
+# important: ensure "geographic" coordinates
+dat_train$lat = 90 - dat_train$lat
 
 # dat_train$rep <- as.factor(ifelse(dat_train$rep==0, "random", "repeated"))
 # dat_train$epoch <- as.factor(ifelse(dat_train$epoch==1, "during", "after"))
