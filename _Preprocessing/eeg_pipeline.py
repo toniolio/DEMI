@@ -356,7 +356,7 @@ def preprocess_eeg(id_num, random_seed=None):
 
     # Perform ICA using EOG data on eye blinks
     print("\n\n=== Removing Blinks Using ICA... ===\n")
-    ica = ICA(n_components=20, random_state=random_seed, method='picard')
+    ica = ICA(n_components=15, random_state=random_seed, method='picard')
     ica.fit(raw_prepped, decim=5)
     eog_indices, eog_scores = ica.find_bads_eog(raw_prepped)
     ica.exclude = eog_indices
