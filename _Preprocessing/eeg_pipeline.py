@@ -348,7 +348,7 @@ def preprocess_eeg(id_num, random_seed=None):
 
     # Apply highpass & lowpass filters
     print("\n\n=== Applying Highpass & Lowpass Filters... ===")
-    raw_prepped.filter(1.0, 50.0, fir_design='firwin')
+    raw_prepped.filter(1.0, 50.0, fir_design='firwin', picks=['eeg'])
 
     # Plot data following frequency filters
     save_psd_plot(id_num, "psd_3_filtered", plot_path, raw_prepped)
