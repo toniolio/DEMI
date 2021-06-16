@@ -17,6 +17,7 @@ import binascii
 from collections import Counter
 
 import mne
+import numexpr
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -265,6 +266,7 @@ def preprocess_eeg(id_num, random_seed=None):
     print("\n\n=== Performing CleanLine... ===")
     
     # Try to remove line noise using CleanLine approach
+    n_threads = max(1, int(numexpr.detect_number_of_cores() / 2))
     linenoise = np.arange(60, sample_rate / 2, 60)
     EEG_raw = raw_copy.get_data() * 1e6
     EEG_new = removeTrend(EEG_raw, sample_rate=raw.info["sfreq"])
@@ -276,6 +278,7 @@ def preprocess_eeg(id_num, random_seed=None):
         method="spectrum_fit",
         mt_bandwidth=2,
         p_value=0.01,
+        n_jobs=n_threads,  # uses half of all avaliable cores
     )
     EEG_final = EEG_raw - EEG_new + EEG_clean
     raw_copy._data = EEG_final * 1e-6
