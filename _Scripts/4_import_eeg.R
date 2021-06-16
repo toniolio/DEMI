@@ -181,15 +181,6 @@ if (file.exists(cached_eeg_path)) {
     eeg_merged[, trial := as.integer(trial)]  # make trial int to save space
     setcolorder(eeg_merged, c("trial", "epoch", "time"))  # reorder columns
 
-    # If EEG data is CSD-transformed, scale units from (uV/m^2) to (mV/m^2)
-    if (using_csd) {
-      ch_names <- setdiff(names(eeg_merged), c("trial", "epoch", "time"))
-      eeg_merged[,
-        (ch_names) := lapply(.SD, function(x) x * 1000),
-        .SDcols = ch_names
-      ]
-    }
-
     list(eeg = eeg_merged, emg = emg_downsampled)
   })
 

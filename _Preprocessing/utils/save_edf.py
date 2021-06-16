@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import numpy as np
 import utils.EDF as pyedf
 
 
@@ -16,7 +17,7 @@ def write_mne_edf(fname, raw):
         data_size = 3 # NOTE: BDF export isn't actually supported yet
         dmin, dmax = -8388608, 8388607
     
-    data = raw.get_data() * 1e6  # convert to microvolts
+    data = raw.get_data()
     nchan = raw.info["nchan"]
     date = raw.info["meas_date"]
     default_lopass = (raw.info['sfreq'] / 2.0) - 1
@@ -24,12 +25,18 @@ def write_mne_edf(fname, raw):
     lopass = raw.info['lowpass'] if raw.info['lowpass'] < default_lopass else None
     filt = pyedf.create_filter_str(hipass, lopass)
 
+    ch_types = np.asarray(raw.get_channel_types())
+    data[ch_types == 'eeg', :] *= 1e6  # scale normal EEG to microvolts
+    data[ch_types == 'csd', :] *= 1e4  # scale CSD EEG to millivolts
+
     ch_units = []
-    for ch_type in raw.get_channel_types():
-        if ch_type in ['eeg', 'eog', 'emg']:
+    for ch_type in ch_types:
+        if ch_type in ['eog', 'emg']:
+            ch_units.append('V')
+        elif ch_type == 'eeg':
             ch_units.append('uV')
         elif ch_type == 'csd':
-            ch_units.append('uV/m^2')
+            ch_units.append('mV/m^2')
         else:
             ch_units.append('')
 
