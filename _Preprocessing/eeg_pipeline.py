@@ -70,9 +70,11 @@ def save_psd_plot(id_num, suffix, path, dat):
     plt.close()
 
 
-def save_channel_plot(id_num, suffix, path, dat):
+def save_channel_plot(id_num, suffix, path, dat, extra_chans=None):
 
     plot_path = os.path.join(path, "sub-{0}_{1}.png".format(id_num, suffix))
+    if extra_chans:
+        dat.add_channels([extra_chans])
     ch_plot = dat.plot(
 		n_channels=37, 
 		duration=30, 
@@ -81,6 +83,8 @@ def save_channel_plot(id_num, suffix, path, dat):
 	)
     ch_plot.savefig(plot_path, bbox_inches = 'tight')
     plt.close()
+    if extra_chans:
+        dat.drop_channels(extra_chans.ch_names)
 
 
 def save_ica_plots(id_num, path, dat, ica, eog_scores):
@@ -166,13 +170,13 @@ def preprocess_eeg(id_num, random_seed=None):
     raw_other = raw_copy.copy()
     raw_other.pick_types(eog=True, emg=True, stim=False)
 
-    # Prepare copy of raw data for PREP
+    # Prepare copy of raw data for PREP, dropping all non-EEG channels
     raw_copy.pick_types(eeg=True)
 
     # Plot data prior to any processing
     if complete:
         save_psd_plot(id_num, "psd_0_raw", plot_path, raw_copy)
-        save_channel_plot(id_num, "ch_0_raw", plot_path, raw_copy)
+        save_channel_plot(id_num, "ch_0_raw", plot_path, raw_copy, raw_other)
 
 
     ### Clean up events #######################################################
@@ -279,7 +283,7 @@ def preprocess_eeg(id_num, random_seed=None):
     
     # Plot data following cleanline
     save_psd_plot(id_num, "psd_1_cleanline", plot_path, raw_copy)
-    save_channel_plot(id_num, "ch_1_cleanline", plot_path, raw_copy)
+    save_channel_plot(id_num, "ch_1_cleanline", plot_path, raw_copy, raw_other)
 
     # Perform robust re-referencing
     prep_params = {
@@ -304,7 +308,7 @@ def preprocess_eeg(id_num, random_seed=None):
 
     # Plot data following robust re-reference
     save_psd_plot(id_num, "psd_2_reref", plot_path, reference.raw)
-    save_channel_plot(id_num, "ch_2_reref", plot_path, reference.raw)
+    save_channel_plot(id_num, "ch_2_reref", plot_path, reference.raw, raw_other)
 
     # Re-append removed EMG/EOG/trigger channels
     raw_prepped = reference.raw.add_channels([raw_other])
