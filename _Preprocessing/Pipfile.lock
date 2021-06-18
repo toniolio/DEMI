@@ -297,7 +297,7 @@
         },
         "pyprep": {
             "git": "https://github.com/sappelhoff/pyprep.git",
-            "ref": "bad637e2a1f43759e39d7126c900b041d7401819"
+            "ref": "4614ca01f4e84a93c04fdc729185306d715a1a7c"
         },
         "pyqt5": {
             "hashes": [
