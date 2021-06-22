@@ -157,10 +157,12 @@ if (file.exists(cached_eeg_path)) {
       )
     eeg_tracing <- eeg %>%
       eeg_segment(
+        # note that we want a bit before time=0 to plot this properly in 6_plot_raw.r
         .description == "real_trace_start", .lim = c(-1501, 2500), .unit = "ms"
       )
     eeg_post_trace <- eeg %>%
       eeg_segment(
+        # note that we want a bit before time=0 to plot this properly in 6_plot_raw.r
         .description == "real_trace_end", .lim = c(-1501, 2500), .unit = "ms"
       )
 
