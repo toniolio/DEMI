@@ -13,32 +13,38 @@ scale_to_0range = function(x,range=1){
 }
 
 #in case the preds haven't been loaded
-preds_dat = readRDS('_rds/preds_dat.rds')
+preds_dat = readRDS('_rds/preds_dat_re.rds')
 
-
-
-# example main-effect-topo plot: block topo ----
 
 #get the data to plot
 (
 	# start with the full preds
 	preds_dat
+	%>%filter(
+		group == 'imagery' # physical, imagery
+	)
 	# group by the variables you want AND sample
 	%>% group_by(
 		lat
 		, long
-		, block
-		, sample
+		, band
+		, sample  #Notice that sample isn't last this time!
+		, epoch
 	)
-	# collapse to a mean, dropping sample from the grouping thereafter
+	# collapse to a mean, dropping epoch from the grouping thereafter
 	%>% summarise(
 		value = mean(value)
 		, .groups = 'drop_last'
 	)
+	# collapse to a difference across epoch, droping sample from the grouping thereafter
+	%>% summarise(
+		value = value[epoch=='after'] - value[epoch=='during']
+		, .groups = 'drop_last'
+	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
 	%>% summarise(
-		lo = quantile(value,.02/2) #97%ile lower-bound
-		, hi = quantile(value,1-.02/2) #97%ile upper-bound
+		lo = quantile(value,.05/2) #95%ile lower-bound
+		, hi = quantile(value,1-.05/2) #95%ile upper-bound
 		, mid = value[sample==0]
 		, .groups = 'drop'
 	)
@@ -68,22 +74,28 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		, lo_scaled = (lo-min_lo)/range_ - .5
 		, hi_scaled = (hi-min_lo)/range_ - .5
 		, mid_scaled = (mid-min_lo)/range_ - .5
-
+		, zero_scaled = (0-min_lo)/range_ - .5 #############For when zero is interesting!
 
 		# now get the global y-position given the subpanel location and subpanel's scaled y-axis data
 		, to_plot_lo = y_scaled + lo_scaled
 		, to_plot_hi = y_scaled + hi_scaled
 		, to_plot_mid = y_scaled + mid_scaled
+		, to_plot_zero = y_scaled + zero_scaled
 
 		####
 		# Content of this section will change depending on variables in the plot
 		####
 
-		#block is going to be mapped to the x-axis of each sub-panel, so re-map it to have a range of 1
-		, block_scaled = scale_to_0range(block,1)
+		#band is going to be mapped to the x-axis of each sub-panel, so re-map it to have a range of 1
+		#now make them equally spaced between -.5 and .5 (but not AT those values)
+		, band_scaled = case_when(
+			band=='alpha' ~ -1/3
+			, band=='beta' ~ 0
+			, band=='theta' ~ 1/3
+		)
 
 		# just like we did above for the y-axis, get the global x-axis position given the subpanel location and scaled x-axis data
-		, to_plot_x = x_scaled + block_scaled
+		, to_plot_x = x_scaled + band_scaled
 
 	)
 	#save as new object so we don't have to re-run the above if we make mistakes or tweaks below
@@ -103,13 +115,13 @@ y_axis_dat = tibble(
 x_axis_y_offset = y_axis_y_offset-.5
 x_axis_x_offset = y_axis_x_offset+.5
 x_axis_dat = tibble(
-	label = c('1','','','','5','')
-	, x_scaled = seq(0,1,length.out=6)
-	, to_plot_x = x_scaled -.5 + x_axis_x_offset
+	label = c('alpha','beta','theta')
+	, x_scaled = c(-1/3,0,1/3)
+	, to_plot_x = x_scaled + x_axis_x_offset
 	, to_plot_y = rep(0,length(label)) + x_axis_y_offset
 )
 axis_title_dat = tibble(
-	label = c('Relative power\n(log-dB)','Block')
+	label = c('Relative power\n(log-dB)','Band')
 	, x = c(y_axis_x_offset-.5,x_axis_x_offset)
 	, y = c(y_axis_y_offset,x_axis_y_offset-.3)
 	, angle = c(90,0)
@@ -136,6 +148,7 @@ axis_title_dat = tibble(
 		, fill = 'grey90'
 		, colour = 'transparent'
 	)
+
 	# y-axis line
 	+ geom_line(
 		data = y_axis_dat
@@ -211,6 +224,7 @@ axis_title_dat = tibble(
 			, y = to_plot_y-.15
 			, label = label
 		)
+		, parse = T
 		, vjust = 'top'
 		, size = 2
 	)
@@ -229,8 +243,7 @@ axis_title_dat = tibble(
 	)
 
 	# render the uncertainty intervals
-	# (could use geom_errorbar instead)
-	+ geom_ribbon(
+	+ geom_errorbar(
 		mapping = aes(
 			x = to_plot_x
 			, ymin = to_plot_lo
@@ -238,6 +251,7 @@ axis_title_dat = tibble(
 			, group = interaction(lat,long)
 		)
 		, alpha = .5
+		, width = .125
 	)
 	# render the predictions for the mean
 	# (could use geom_point instead or in addition)
@@ -249,6 +263,39 @@ axis_title_dat = tibble(
 		)
 		, alpha = .5
 	)
+	+ geom_point(
+		mapping = aes(
+			x = to_plot_x
+			, y = to_plot_mid
+			, group = interaction(lat,long)
+		)
+		, alpha = .5
+	)
+
+	# line at zero
+	+ geom_line(
+		data = (
+			ready_to_plot
+			%>% group_keys(lat,long,x_scaled,to_plot_zero)
+			%>% mutate(
+				xmin = x_scaled-.5
+				, xmax = x_scaled+.5
+			)
+			%>% select(-x_scaled)
+			%>% pivot_longer(
+				cols = c(xmin,xmax)
+				, values_to = 'to_plot_x'
+			)
+		)
+		, aes(
+			x = to_plot_x
+			, y = to_plot_zero
+			, group = interaction(lat,long)
+		)
+		, colour = 'white'
+	)
+
+
 	+ coord_equal() #important to make subpanel locations accurate
 	+ theme(
 		legend.position = 'none'
@@ -264,7 +311,7 @@ axis_title_dat = tibble(
 
 #now save
 ggsave(
-	file = '_plots/example_block_topo.pdf'
+	file = '_plots/example_band_by_epoch_topo_diff.pdf'
 	, width = 10
 	, height = 10
 )

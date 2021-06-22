@@ -13,32 +13,52 @@ scale_to_0range = function(x,range=1){
 }
 
 #in case the preds haven't been loaded
-preds_dat = readRDS('_rds/preds_dat.rds')
+preds_dat = readRDS('_rds/preds_dat_re.rds')
 
-
-
-# example main-effect-topo plot: block topo ----
+grp = 'imagery' # physical, imagery
+bnd = 'beta' # theta, alpha, beta
 
 #get the data to plot
 (
 	# start with the full preds
 	preds_dat
+	# re-label accuracy
+	%>% mutate(
+		accuracy = case_when(
+			accuracy==max(accuracy) ~ 'High'
+			, accuracy==min(accuracy) ~ 'Low'
+		)
+	)
+	# filter to to conditions of interest
+	%>%filter(
+		group == grp # physical, imagery
+		, band == bnd # theta, alpha, beta
+		# , accuracy == 'High' #Low, High
+		, block < max(block) # remove final block — better group comparison
+	)
 	# group by the variables you want AND sample
 	%>% group_by(
 		lat
 		, long
-		, block
+		, epoch
+		, rep
 		, sample
+		, accuracy
 	)
-	# collapse to a mean, dropping sample from the grouping thereafter
+	# collapse to a mean, dropping accuracy from the grouping thereafter
 	%>% summarise(
 		value = mean(value)
 		, .groups = 'drop_last'
 	)
+	# collapse accuracy to a difference score, dropping rep from the grouping thereafter
+	%>% summarise(
+		value = value[accuracy=='Low'] - value[accuracy=='High']
+		, .groups = 'drop_last'
+	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
 	%>% summarise(
-		lo = quantile(value,.02/2) #97%ile lower-bound
-		, hi = quantile(value,1-.02/2) #97%ile upper-bound
+		lo = quantile(value,.02/2) #99%ile lower-bound
+		, hi = quantile(value,1-.02/2) #99%ile upper-bound
 		, mid = value[sample==0]
 		, .groups = 'drop'
 	)
@@ -68,22 +88,33 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		, lo_scaled = (lo-min_lo)/range_ - .5
 		, hi_scaled = (hi-min_lo)/range_ - .5
 		, mid_scaled = (mid-min_lo)/range_ - .5
-
+		, zero_scaled = (0-min_lo)/range_ - .5 #############For when zero is interesting!
 
 		# now get the global y-position given the subpanel location and subpanel's scaled y-axis data
 		, to_plot_lo = y_scaled + lo_scaled
 		, to_plot_hi = y_scaled + hi_scaled
 		, to_plot_mid = y_scaled + mid_scaled
+		, to_plot_zero = y_scaled + zero_scaled
 
 		####
 		# Content of this section will change depending on variables in the plot
 		####
 
-		#block is going to be mapped to the x-axis of each sub-panel, so re-map it to have a range of 1
-		, block_scaled = scale_to_0range(block,1)
+		#epoch is going to be mapped to the x-axis of each sub-panel, so re-map it to have a range of 1
+		#now make them equally spaced between -.5 and .5 (but not AT those values)
+		, epoch_scaled = case_when(
+			epoch=="during" ~ -.25
+			, epoch=="after" ~ .25
+		)
+
+		#also want to shift the x-axis locations by rep a smidge
+		, rep_scaled = case_when(
+			rep=="random" ~ -.075
+			, rep=="repeated" ~ .075
+		)
 
 		# just like we did above for the y-axis, get the global x-axis position given the subpanel location and scaled x-axis data
-		, to_plot_x = x_scaled + block_scaled
+		, to_plot_x = x_scaled + epoch_scaled + rep_scaled
 
 	)
 	#save as new object so we don't have to re-run the above if we make mistakes or tweaks below
@@ -103,13 +134,13 @@ y_axis_dat = tibble(
 x_axis_y_offset = y_axis_y_offset-.5
 x_axis_x_offset = y_axis_x_offset+.5
 x_axis_dat = tibble(
-	label = c('1','','','','5','')
-	, x_scaled = seq(0,1,length.out=6)
-	, to_plot_x = x_scaled -.5 + x_axis_x_offset
+	label = c('During','After')
+	, x_scaled = c(-.25,.25)
+	, to_plot_x = x_scaled + x_axis_x_offset
 	, to_plot_y = rep(0,length(label)) + x_axis_y_offset
 )
 axis_title_dat = tibble(
-	label = c('Relative power\n(log-dB)','Block')
+	label = c('Relative power\n(log-dB)','Epoch')
 	, x = c(y_axis_x_offset-.5,x_axis_x_offset)
 	, y = c(y_axis_y_offset,x_axis_y_offset-.3)
 	, angle = c(90,0)
@@ -136,6 +167,7 @@ axis_title_dat = tibble(
 		, fill = 'grey90'
 		, colour = 'transparent'
 	)
+
 	# y-axis line
 	+ geom_line(
 		data = y_axis_dat
@@ -229,42 +261,70 @@ axis_title_dat = tibble(
 	)
 
 	# render the uncertainty intervals
-	# (could use geom_errorbar instead)
-	+ geom_ribbon(
+	# (could use geom_ribbon instead)
+	+ geom_errorbar(
 		mapping = aes(
 			x = to_plot_x
 			, ymin = to_plot_lo
 			, ymax = to_plot_hi
-			, group = interaction(lat,long)
+			, group = interaction(lat,long,rep)
+			, fill = rep
 		)
 		, alpha = .5
+		, width = .125 #for bar, not ribbon
 	)
 	# render the predictions for the mean
-	# (could use geom_point instead or in addition)
-	+ geom_line(
+	# (could use geom_line instead or in addition)
+	+ geom_point(
 		mapping = aes(
 			x = to_plot_x
 			, y = to_plot_mid
-			, group = interaction(lat,long)
+			, group = interaction(lat,long,rep)
+			, colour = rep
 		)
 		, alpha = .5
 	)
+	# line at zero
+	+ geom_line(
+		data = (
+			ready_to_plot
+			%>% group_keys(lat,long,x_scaled,to_plot_zero)
+			%>% mutate(
+				xmin = x_scaled-.5
+				, xmax = x_scaled+.5
+			)
+			%>% select(-x_scaled)
+			%>% pivot_longer(
+				cols = c(xmin,xmax)
+				, values_to = 'to_plot_x'
+			)
+		)
+		, aes(
+			x = to_plot_x
+			, y = to_plot_zero
+			, group = interaction(lat,long)
+		)
+		, colour = 'white'
+	)
 	+ coord_equal() #important to make subpanel locations accurate
 	+ theme(
-		legend.position = 'none'
-		, legend.justification = c(0,0)
-		, legend.title = element_blank()
-		, axis.title = element_blank()
+		# legend.position = 'none'
+		# , legend.justification = c(0,0)
+		# , legend.title = element_blank()
+		axis.title = element_blank()
 		, axis.ticks = element_blank()
 		, axis.text = element_blank()
 		, panel.grid = element_blank()
 		, panel.background = element_rect(fill='transparent',colour='grey90')
 	)
+	+ labs(title = bnd
+		   # , tag = grp
+	)
 )
 
 #now save
 ggsave(
-	file = '_plots/example_block_topo.pdf'
+	file = paste0('_plots/',grp,'_',bnd,'_acc_diff_by_epoch_by_rep.pdf')
 	, width = 10
 	, height = 10
 )

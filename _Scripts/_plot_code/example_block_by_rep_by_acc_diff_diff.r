@@ -13,7 +13,7 @@ scale_to_0range = function(x,range=1){
 }
 
 #in case the preds haven't been loaded
-preds_dat = readRDS('_rds/preds_dat.rds')
+preds_dat = readRDS('_rds/preds_dat_re.rds')
 
 
 #get the data to plot
@@ -26,6 +26,13 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		, epoch == 'after' # during, after
 		, block < max(block) # drop final block
 	)
+	# re-label accuracy
+	%>% mutate(
+		accuracy = case_when(
+			accuracy==max(accuracy) ~ 'High'
+			, accuracy==min(accuracy) ~ 'Low'
+		)
+	)
 	# group by the variables you want AND sample
 	%>% group_by(
 		lat
@@ -35,25 +42,25 @@ preds_dat = readRDS('_rds/preds_dat.rds')
 		, rep
 		, accuracy
 	)
-	# collapse to a mean, dropping REP from the grouping thereafter
+	# collapse to a mean, dropping accuracy from the grouping thereafter
 	%>% summarise(
 		value = mean(value)
 		, .groups = 'drop_last'
 	)
-	# collapse to a difference across epoch, droping rep from the grouping thereafter
+	# collapse accuracy to a difference score, dropping rep from the grouping thereafter
 	%>% summarise(
-		value = value[which.min(accuracy)] - value[which.max(accuracy)]
+		value = value[accuracy=='Low'] - value[accuracy=='High']
 		, .groups = 'drop_last'
 	)
-	# collapse to a difference across rep, droping sample from the grouping thereafter
+	# collapse to a difference across rep, dropping sample from the grouping thereafter
 	%>% summarise(
 		value = value[rep=='repeated'] - value[rep=='random']
 		, .groups = 'drop_last'
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
 	%>% summarise(
-		lo = quantile(value,.03/2) #97%ile lower-bound
-		, hi = quantile(value,1-.03/2) #97%ile upper-bound
+		lo = quantile(value,.05/2) #95%ile lower-bound
+		, hi = quantile(value,1-.05/2) #95%ile upper-bound
 		, mid = value[sample==0]
 		, .groups = 'drop'
 	)
