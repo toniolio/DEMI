@@ -14,7 +14,7 @@ scale_to_0range = function(x,range=1){
 }
 
 #get the preds:
-preds_dat = readRDS('_rds/preds_dat.rds')
+preds_dat = readRDS('_rds/preds_dat_re.rds')
 
 #make fake data as before:
 hot_lat = 50
