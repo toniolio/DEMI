@@ -41,9 +41,25 @@ from warnings import warn
 import numpy as np
 
 
+def is_numeric(x):
+    try:
+        float(x)
+        return True
+    except ValueError:
+        return False
 
 def padtrim(buf, size, pad = ' '):
     return str(buf).ljust(size, pad)[:size]
+
+def validate_header_field(x, size, name):
+    s = str(int(x)) if is_numeric(x) else str(x)
+    if len(s) > size:
+        typestr = "number" if is_numeric(x) else "string"
+        if isinstance(x, (np.floating, float)):
+            s = "{:.3f}".format(x).rstrip("0")
+        e = ("The {0} '{1}' is too long to fit in the '{2}' field of "
+             "the EDF+ header (maximum {3} characters).")
+        raise ValueError(e.format(typestr, s, name, size))
 
 def writebyte(file, content, encoding='ascii'):
     try:
@@ -297,6 +313,7 @@ class EDFWriter():
                 chan_info[key] = np.asarray(chan_info[key])
                 # Actually write out data
                 for val in chan_info[key]:
+                    validate_header_field(val, bytes_per_field[key], key)
                     writebyte(fid, padtrim(val, bytes_per_field[key]))
                 # If needed, add annotation channel info
                 if self.annot_ch == 1:

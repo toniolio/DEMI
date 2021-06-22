@@ -11,7 +11,8 @@ mnelab = "*"
 mne = "0.21.2"
 mne_bids = "0.6"
 numexpr = "*"
-pyprep = {git = "https://github.com/a-hurst/pyprep.git", ref = "e82f111097bf0d4e4b5828f447ac0d92d11a09f5"}
+joblib = "*"
+pyprep = {git = "https://github.com/sappelhoff/pyprep.git", ref = "4614ca01f4e84a93c04fdc729185306d715a1a7c"}
 python-picard = {git = "https://github.com/pierreablin/picard.git", ref = "f40b97e600bfe6140eec9e5346934e6032a669ad"}
 statsmodels = "*"
 psutil = "*"

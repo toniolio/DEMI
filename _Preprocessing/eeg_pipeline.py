@@ -17,6 +17,7 @@ import binascii
 from collections import Counter
 
 import mne
+import numexpr
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -70,9 +71,11 @@ def save_psd_plot(id_num, suffix, path, dat):
     plt.close()
 
 
-def save_channel_plot(id_num, suffix, path, dat):
+def save_channel_plot(id_num, suffix, path, dat, extra_chans=None):
 
     plot_path = os.path.join(path, "sub-{0}_{1}.png".format(id_num, suffix))
+    if extra_chans:
+        dat.add_channels([extra_chans])
     ch_plot = dat.plot(
 		n_channels=37, 
 		duration=30, 
@@ -81,6 +84,8 @@ def save_channel_plot(id_num, suffix, path, dat):
 	)
     ch_plot.savefig(plot_path, bbox_inches = 'tight')
     plt.close()
+    if extra_chans:
+        dat.drop_channels(extra_chans.ch_names)
 
 
 def save_ica_plots(id_num, path, dat, ica, eog_scores):
@@ -166,13 +171,13 @@ def preprocess_eeg(id_num, random_seed=None):
     raw_other = raw_copy.copy()
     raw_other.pick_types(eog=True, emg=True, stim=False)
 
-    # Prepare copy of raw data for PREP
+    # Prepare copy of raw data for PREP, dropping all non-EEG channels
     raw_copy.pick_types(eeg=True)
 
     # Plot data prior to any processing
     if complete:
         save_psd_plot(id_num, "psd_0_raw", plot_path, raw_copy)
-        save_channel_plot(id_num, "ch_0_raw", plot_path, raw_copy)
+        save_channel_plot(id_num, "ch_0_raw", plot_path, raw_copy, raw_other)
 
 
     ### Clean up events #######################################################
@@ -261,6 +266,7 @@ def preprocess_eeg(id_num, random_seed=None):
     print("\n\n=== Performing CleanLine... ===")
     
     # Try to remove line noise using CleanLine approach
+    n_threads = max(1, int(numexpr.detect_number_of_cores() / 2))
     linenoise = np.arange(60, sample_rate / 2, 60)
     EEG_raw = raw_copy.get_data() * 1e6
     EEG_new = removeTrend(EEG_raw, sample_rate=raw.info["sfreq"])
@@ -272,6 +278,7 @@ def preprocess_eeg(id_num, random_seed=None):
         method="spectrum_fit",
         mt_bandwidth=2,
         p_value=0.01,
+        n_jobs=n_threads,  # uses half of all avaliable cores
     )
     EEG_final = EEG_raw - EEG_new + EEG_clean
     raw_copy._data = EEG_final * 1e-6
@@ -279,7 +286,7 @@ def preprocess_eeg(id_num, random_seed=None):
     
     # Plot data following cleanline
     save_psd_plot(id_num, "psd_1_cleanline", plot_path, raw_copy)
-    save_channel_plot(id_num, "ch_1_cleanline", plot_path, raw_copy)
+    save_channel_plot(id_num, "ch_1_cleanline", plot_path, raw_copy, raw_other)
 
     # Perform robust re-referencing
     prep_params = {
@@ -304,7 +311,7 @@ def preprocess_eeg(id_num, random_seed=None):
 
     # Plot data following robust re-reference
     save_psd_plot(id_num, "psd_2_reref", plot_path, reference.raw)
-    save_channel_plot(id_num, "ch_2_reref", plot_path, reference.raw)
+    save_channel_plot(id_num, "ch_2_reref", plot_path, reference.raw, raw_other)
 
     # Re-append removed EMG/EOG/trigger channels
     raw_prepped = reference.raw.add_channels([raw_other])
@@ -344,7 +351,7 @@ def preprocess_eeg(id_num, random_seed=None):
 
     # Apply highpass & lowpass filters
     print("\n\n=== Applying Highpass & Lowpass Filters... ===")
-    raw_prepped.filter(1.0, 50.0, fir_design='firwin')
+    raw_prepped.filter(1.0, 50.0, fir_design='firwin', picks=['eeg'])
 
     # Plot data following frequency filters
     save_psd_plot(id_num, "psd_3_filtered", plot_path, raw_prepped)
@@ -352,7 +359,7 @@ def preprocess_eeg(id_num, random_seed=None):
 
     # Perform ICA using EOG data on eye blinks
     print("\n\n=== Removing Blinks Using ICA... ===\n")
-    ica = ICA(n_components=20, random_state=random_seed, method='picard')
+    ica = ICA(n_components=15, random_state=random_seed, method='picard')
     ica.fit(raw_prepped, decim=5)
     eog_indices, eog_scores = ica.find_bads_eog(raw_prepped)
     ica.exclude = eog_indices

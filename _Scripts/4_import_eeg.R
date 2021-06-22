@@ -13,6 +13,7 @@ library(eeguana)
 
 source("./_Scripts/_settings.R")
 source("./_Scripts/_functions/eeg.R")
+source("./_Scripts/_functions/emg.R")
 
 
 
@@ -101,6 +102,15 @@ epoch_offsets <- tracing_times_filtered %>%
   select(-c(samples, flagged, session, block, trial))
 
 
+# Get the subject IDs for all imagery participants
+
+imagery_ids <- bdat %>%
+  group_by(participant) %>%
+  summarize(group = group[1]) %>%
+  filter(group != "physical") %>%
+  pull(participant)
+
+
 # Ignore EDF files that have no corresponding ID in the behavioural data
 
 eeg_ids <- as.numeric(gsub("\\D", "", basename(eeg_files)))
@@ -142,7 +152,8 @@ if (file.exists(cached_eeg_path)) {
     # Extract baseline, tracing, and post-tracing epochs from EEG
     eeg_baseline <- eeg %>%
       eeg_segment(
-        .description == "red_on", .lim = c(-1500, 800), .unit = "ms" # one second is trimmed off each end, and the rest is averaged for the baseline
+        # one second is trimmed off each end, and the rest is averaged for the baseline
+        .description == "red_on", .lim = c(-1500, 800), .unit = "ms"
       )
     eeg_tracing <- eeg %>%
       eeg_segment(
@@ -153,21 +164,28 @@ if (file.exists(cached_eeg_path)) {
         .description == "real_trace_end", .lim = c(-1501, 2500), .unit = "ms"
       )
 
-    # Epoch EMG data
-    epoched_emg <- emg %>%
-      eeg_segment(
-        .description == "stim_on", .end = .description == "red_on"
-      )
-
     # Join trial numbers to epochs
     trial_key <- data.table(select(eeg_baseline$.segments, c(.id, trial)))
     eeg_baseline$.signal[trial_key, on = ".id", trial := trial]
     eeg_tracing$.signal[trial_key, on = ".id", trial := trial]
     eeg_post_trace$.signal[trial_key, on = ".id", trial := trial]
-    epoched_emg$.signal[trial_key, on = ".id", trial := trial]
+
+    # If participant is in the imagery condition, filter and epoch their EMG data
+    if (id_num %in% imagery_ids) {
+      epoched_emg <- emg %>%
+        mutate(
+          EMG.L = channel_dbl(emg_bandpass(EMG.L, 20, 450, srate = 1000)),
+          EMG.A = channel_dbl(emg_bandpass(EMG.A, 20, 450, srate = 1000))
+        ) %>%
+        eeg_segment(
+          .description == "stim_on", .end = .description == "real_trace_end"
+        )
+      epoched_emg$.signal[trial_key, on = ".id", trial := trial]
+    } else {
+      epoched_emg <- NA
+    }
 
     # Downsample EEG to 100 Hz and merge data frames
-    emg_downsampled <- epoched_emg$.signal[.sample %% 10 == 0]
     eeg_list <- list(
       baseline = eeg_baseline$.signal[.sample %% 10 == 0],
       tracing = eeg_tracing$.signal[.sample %% 10 == 0],
@@ -181,19 +199,10 @@ if (file.exists(cached_eeg_path)) {
     eeg_merged[, trial := as.integer(trial)]  # make trial int to save space
     setcolorder(eeg_merged, c("trial", "epoch", "time"))  # reorder columns
 
-    # If EEG data is CSD-transformed, scale units from (uV/m^2) to (mV/m^2)
-    if (using_csd) {
-      ch_names <- setdiff(names(eeg_merged), c("trial", "epoch", "time"))
-      eeg_merged[,
-        (ch_names) := lapply(.SD, function(x) x * 1000),
-        .SDcols = ch_names
-      ]
-    }
-
-    list(eeg = eeg_merged, emg = emg_downsampled)
+    list(eeg = eeg_merged, emg = epoched_emg)
   })
 
-  # Cache epoched EEG data for next time
+  # Cache epoched EEG and EMG data for next time
   names(eeg_data) <- gsub("_eeg_prepped.edf", "", basename(eeg_files))
   saveRDS(eeg_data, file = cached_eeg_path)
 }
