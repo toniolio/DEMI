@@ -11,7 +11,7 @@ drop_interpolated <- FALSE
 using_csd <- TRUE
 
 # The frequency bins (in Hz) to use for wavelet-decomposition of the EEG signal
-wt_frequencies <- 1:48
+wt_frequencies <- 1:40
 
 # Whether to use the 4 seconds before each trial's onset as an EEG baseline
 # instead of the windows 500 ms to 200 ms before each epoch
