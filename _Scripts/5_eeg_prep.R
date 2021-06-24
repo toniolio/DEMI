@@ -135,7 +135,7 @@ for (id in subject_ids) {
     bad_img_trials <- emg_bads %>%
       filter(id == id_num) %>%
       pull(trial)
-    bad_img_rows <- epoched&trial %in% bad_img_trials
+    bad_img_rows <- epoched$trial %in% bad_img_trials
     epoched <- epoched[!bad_img_rows, ]
   }
 
