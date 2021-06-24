@@ -40,3 +40,35 @@ emg_smoothing <- function(x, high_freq, srate) {
   # Apply the filter to the EMG signal
   signal::filtfilt(bfilt_lo, x)
 }
+
+
+
+### eeguana wrangling functions ###
+
+append_epochs <- function(signal, events) {
+
+  # Get event names and onsets per trial and join to signal
+  join_key <- c(".id" = ".id", ".sample" = ".initial")
+  events <- events %>% select(.id, .initial, .description)
+  signal <- left_join(signal, events, by = join_key)
+
+  # Create a numeric column for epoch
+  signal <- signal %>%
+    group_by(.id) %>%
+    filter(.sample < max(.sample)) %>%  # drop last sample for each trial
+    mutate(epoch_num = cumsum(!is.na(.description)))
+
+  # Get name/number map for epochs
+  name_map <- signal %>%
+    filter(!is.na(.description)) %>%
+    mutate(epoch = .description) %>%
+    select(c(.id, epoch_num, epoch))
+
+  # Convert the numeric epoch column into a named factor column
+  signal <- ungroup(signal) %>%
+    left_join(name_map, by = c(".id", "epoch_num")) %>%
+    mutate(epoch = as.factor(epoch)) %>%
+    select(-c(epoch_num, .description))
+
+  signal
+}

@@ -10,6 +10,9 @@ drop_interpolated <- FALSE
 # Whether or not EEG data has been Current Source Density (CSD) processed
 using_csd <- TRUE
 
+# Whether or not exclude imagery trials based on excess EMG activity
+exclude_bad_by_emg <- TRUE
+
 # The frequency bins (in Hz) to use for wavelet-decomposition of the EEG signal
 wt_frequencies <- 1:40
 

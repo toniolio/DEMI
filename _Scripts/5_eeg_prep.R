@@ -6,10 +6,14 @@
 
 library(readr)
 library(dplyr)
+library(purrr)
 library(data.table)
 
 source("./_Scripts/_settings.R")
 source("./_Scripts/_functions/eeg.R")
+source("./_Scripts/_functions/emg.R")
+
+options(dplyr.summarise.inform = FALSE)
 
 
 
@@ -20,6 +24,79 @@ eeg_data <- readRDS("./_Scripts/_rds/eeg_imported.Rds")
 
 # NOTE: should check and see how this differs from the MNE coords we use
 eegcoords <- read_csv("./_Data/eeg/BESA-81.csv", col_types = cols())
+
+
+
+### Perform EMG analysis for imagery participants ###
+
+# Import, preprocess, and summarize epoch amplitudes per id/trial/deltoid
+
+cat("\n### Preprocessing EMG data for imagery participants ###\n\n")
+emg_activity <- map_df(names(eeg_data), function(id) {
+
+  # If not an imagery participant (no saved EMG), skip to the next
+  emg <- eeg_data[[id]]$emg
+  if (all(is.na(emg))) {
+    return(NULL)
+  }
+  id_num <- as.numeric(gsub("\\D", "", id))
+  cat(" - Processing EMG signal for participant", id_num, "...\n")
+
+  # Clean up epoch labels and append to signal
+  cleaned_events <- emg$.events %>%
+    filter(.description != "trace_start") %>%
+    mutate(.description = gsub("real_", "", .description)) %>%
+    filter(.description != "trace_end")
+  emg$.signal <- append_epochs(emg$.signal, cleaned_events)
+
+  # Wrangle, rectify, and smooth both EMG signals for each trial
+  emg_cleaned <- emg$.signal %>%
+    select(trial, .sample, epoch, EMG.L, EMG.A) %>%
+    rename(Anterior = EMG.A, Lateral = EMG.L) %>%
+    gather("deltoid", "signal", Anterior, Lateral) %>%
+    group_by(trial, deltoid) %>%
+    mutate(
+      cleaned = emg_rectify(signal),
+    ) %>%
+    mutate(
+      cleaned = channel_dbl(emg_smoothing(cleaned, 30, srate = 1000))
+    )
+  
+  # Get median absolute deviation of muscle activity for each trial/epoch
+  emg_summary <- emg_cleaned %>%
+    group_by(trial, deltoid, epoch) %>%
+    summarize(amplitude = mad(cleaned)) %>%
+    mutate(
+      trial_type = ifelse(trial >= 100, "physical", "imagery")
+    ) %>%
+    add_column(id = id_num, .before = "trial")
+
+  emg_summary
+})
+
+
+# Calculate activity difference scores between rest and trace epochs
+
+emg_diffs <- emg_activity %>%
+  spread("epoch", "amplitude") %>%
+  group_by(id, deltoid) %>%
+  mutate(
+    diff_score = trace_start - stim_on
+  )
+
+
+# Flag imagery trials w/ high activity relative to the id's physical trials
+
+emg_bads <- emg_diffs %>%
+  group_by(id, deltoid) %>%
+  mutate(
+    bad_threshold = quantile(diff_score[trial_type == "physical"], prob = 0.25)
+  ) %>%
+  group_by(id, trial) %>%
+  summarize(
+    bad = all(trial_type == "imagery" & diff_score >= bad_threshold)
+  ) %>%
+  filter(bad == TRUE)
 
 
 
@@ -52,6 +129,15 @@ for (id in subject_ids) {
   id_num <- as.numeric(gsub("\\D", "", id))
   cat("\n### Processing EEG signal for participant", id_num, "###\n")
   epoched <- eeg_data[[id]]$eeg
+
+  # If enabled, drop imagery trials w/ excess EMG activity during trace
+  if (exclude_bad_by_emg) {
+    bad_img_trials <- emg_bads %>%
+      filter(id == id_num) %>%
+      pull(trial)
+    bad_img_rows <- epoched&trial %in% bad_img_trials
+    epoched <- epoched[!bad_img_rows, ]
+  }
 
   # Convert "time" to seconds
   epoched$time <- as.double(epoched$time) / 1000
