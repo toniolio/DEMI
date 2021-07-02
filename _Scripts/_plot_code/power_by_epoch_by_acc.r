@@ -15,7 +15,7 @@ scale_to_0range = function(x,range=1){
 #in case the preds haven't been loaded
 preds_dat = readRDS('_rds/preds_dat_re_2.rds')
 
-grp = 'physical' # physical, imagery
+grp = 'imagery' # physical, imagery
 bnd = 'theta' # theta, alpha, beta
 
 approach = 1 # approach to inference
@@ -94,16 +94,9 @@ sigCI = .05 # set "alpha" for "significance" tests (also divided by 2)
 			(lo>0)|(hi<0) ~ T
 			, T ~ F
 		)
+		, .keep = 'unused'
 	)
-	%>% group_by(
-		lat
-		, long
-	)
-	%>% summarise(
-		diff_sig = any(diff_sig)
-		, .groups = 'drop'
-	)
-	%>% right_join(to_plot,by=c('lat','long'))
+	%>% right_join(to_plot,by=c('lat','long','epoch'))
 	%>% select(-samples)
 	%>% group_by(
 		lat
@@ -117,15 +110,7 @@ sigCI = .05 # set "alpha" for "significance" tests (also divided by 2)
 			, T ~ F
 		)
 	)
-	%>% group_by(
-		lat
-		, long
-	)
-	%>% mutate(
-		indiv_sig = any(indiv_sig)
-	)
 ) -> to_plot
-
 
 
 # Now we have some mutations to apply to arrange things visually
@@ -142,8 +127,8 @@ sigCI = .05 # set "alpha" for "significance" tests (also divided by 2)
 		#polar to cartesian then re-scaled versions
 		x = lat*cos(long*(pi/180))
 		, y = lat*sin(long*(pi/180))
-		, x_scaled = scale_to_0range(x,9) #9 makes the plot 10x10 bc 1x1 panels will be centered on these
-		, y_scaled = scale_to_0range(y,9)
+		, x_scaled = scale_to_0range(x,8) #9 makes the plot 10x10 bc 1x1 panels will be centered on these
+		, y_scaled = scale_to_0range(y,8.5)
 
 		#here we find the min & max if we were to plot all the data in one panel
 		, min_lo = min(lo)
@@ -219,13 +204,22 @@ axis_title_dat = tibble(
 	#create a rect around each subpanel
 	+ geom_rect(
 		#use the data from the pipe (.) and use group_keys to reduce to info on the subpanels
-		data = . %>% group_keys(lat,long,x_scaled,y_scaled,diff_sig,indiv_sig)
+		data = (
+			.
+			%>% group_keys(lat,long,x_scaled,y_scaled,epoch,diff_sig,indiv_sig)
+			%>% mutate(
+				x_scaled = case_when(
+					epoch=='during' ~ x_scaled-.25
+					, T ~ x_scaled+.25
+				)
+			)
+		)
 		, aes(
-			xmin = x_scaled-.5
-			, xmax = x_scaled+.5
+			xmin = x_scaled-.25
+			, xmax = x_scaled+.25
 			, ymin = y_scaled-.5
 			, ymax = y_scaled+.5
-			, group = interaction(lat,long)
+			, group = interaction(lat,long,epoch)
 			, fill = if (approach==1) indiv_sig else diff_sig
 		)
 		# , fill = 'grey90'
@@ -385,7 +379,7 @@ axis_title_dat = tibble(
 		   # , tag = grp
 		   )
 	+ scale_fill_manual(
-		values = c('grey50','grey90')
+		values = c('grey80','grey95')
 		, breaks = c(T,F)
 		, guide = F
 	)
