@@ -13,10 +13,10 @@ scale_to_0range = function(x,range=1){
 }
 
 #in case the preds haven't been loaded
-preds_dat = readRDS('_rds/preds_dat_re.rds')
+preds_dat = readRDS('_rds/preds_dat_re_2.rds')
 
 grp = 'physical' # physical, imagery
-bnd = 'beta' # theta, alpha, beta
+bnd = 'theta' # theta, alpha, beta
 
 #get the data to plot
 (
@@ -34,7 +34,7 @@ bnd = 'beta' # theta, alpha, beta
 		group == grp # physical, imagery
 		, band == bnd # theta, alpha, beta
 		# , rep == 'repeated' # random, repeated
-		, block < max(block) # remove final block — better group comparison
+		# , block < max(block) # remove final block — better group comparison
 	)
 	# group by the variables you want AND sample
 	%>% group_by(
@@ -51,8 +51,8 @@ bnd = 'beta' # theta, alpha, beta
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
 	%>% summarise(
-		lo = quantile(value,.02/2) #99%ile lower-bound
-		, hi = quantile(value,1-.02/2) #99%ile upper-bound
+		lo = quantile(value,.02/2) #97.5%ile lower-bound
+		, hi = quantile(value,1-.02/2) #97.5%ile upper-bound
 		, mid = value[sample==0]
 		, .groups = 'drop'
 	)
