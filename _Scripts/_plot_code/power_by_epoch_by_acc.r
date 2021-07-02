@@ -18,6 +18,13 @@ preds_dat = readRDS('_rds/preds_dat_re_2.rds')
 grp = 'physical' # physical, imagery
 bnd = 'theta' # theta, alpha, beta
 
+approach = 1 # approach to inference
+# 1 means non-overlapping error bars
+# 2 means the difference not being credibly zero
+
+CI = .05 # determines error bars by dividing by 2
+# so, .1 = 95% CI; .05 = 97.5%, .02 = 99%, .01 = 99.5%, .002 = 99.9%
+
 #get the data to plot
 (
 	# start with the full preds
@@ -44,20 +51,81 @@ bnd = 'theta' # theta, alpha, beta
 		, accuracy
 		, sample
 	)
-	# collapse to a mean, dropping accuracy from the grouping thereafter
+	# collapse to a mean, dropping sample from the grouping thereafter
 	%>% summarise(
 		value = mean(value)
 		, .groups = 'drop_last'
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
 	%>% summarise(
-		lo = quantile(value,.02/2) #97.5%ile lower-bound
-		, hi = quantile(value,1-.02/2) #97.5%ile upper-bound
+		lo = quantile(value,CI/2) # CI lower-bound
+		, hi = quantile(value,1-CI/2) #CI upper-bound
 		, mid = value[sample==0]
+		, samples = list(tibble(value,sample)) #hack for significance labels
 		, .groups = 'drop'
 	)
 	#save output so we don't have to re-compute if we make mistakes or tweaks below
 ) -> to_plot
+
+#get "significance"
+(
+	to_plot
+	%>% select(-lo,-hi,-mid)
+	%>% unnest(samples)
+	# group by all but the one you want to collapse to a difference
+	%>% group_by(
+		lat
+		, long
+		, epoch
+		, sample
+	)
+	%>% summarise(
+		value = value[accuracy=='High'] - value[accuracy=='Low']
+		, .groups = 'drop_last'
+	)
+	%>% summarise(
+		lo = quantile(value,CI/2) #97.5%ile lower-bound
+		, hi = quantile(value,1-CI/2) #97.5%ile upper-bound
+		, .groups = 'drop'
+	)
+	%>% mutate(
+		diff_sig = case_when(
+			(lo>0)|(hi<0) ~ T
+			, T ~ F
+		)
+	)
+	%>% group_by(
+		lat
+		, long
+	)
+	%>% summarise(
+		diff_sig = any(diff_sig)
+		, .groups = 'drop'
+	)
+	%>% right_join(to_plot,by=c('lat','long'))
+	%>% select(-samples)
+	%>% group_by(
+		lat
+		, long
+		, epoch
+	)
+	%>% mutate(
+		indiv_sig = case_when(
+			(lo[accuracy=='High']>hi[accuracy=='Low'])
+			| (lo[accuracy=='Low']>hi[accuracy=='High']) ~ T
+			, T ~ F
+		)
+	)
+	%>% group_by(
+		lat
+		, long
+	)
+	%>% mutate(
+		indiv_sig = any(indiv_sig)
+	)
+) -> to_plot
+
+
 
 # Now we have some mutations to apply to arrange things visually
 (
@@ -150,15 +218,16 @@ axis_title_dat = tibble(
 	#create a rect around each subpanel
 	+ geom_rect(
 		#use the data from the pipe (.) and use group_keys to reduce to info on the subpanels
-		data = . %>% group_keys(lat,long,x_scaled,y_scaled)
+		data = . %>% group_keys(lat,long,x_scaled,y_scaled,diff_sig,indiv_sig)
 		, aes(
 			xmin = x_scaled-.5
 			, xmax = x_scaled+.5
 			, ymin = y_scaled-.5
 			, ymax = y_scaled+.5
 			, group = interaction(lat,long)
+			, fill = if (approach==1) indiv_sig else diff_sig
 		)
-		, fill = 'grey90'
+		# , fill = 'grey90'
 		, colour = 'transparent'
 	)
 
@@ -262,7 +331,7 @@ axis_title_dat = tibble(
 			, ymin = to_plot_lo
 			, ymax = to_plot_hi
 			, group = interaction(lat,long,accuracy)
-			, fill = accuracy
+			# , fill = accuracy
 		)
 		, alpha = .5
 		, width = .125 #for bar, not ribbon
@@ -314,6 +383,11 @@ axis_title_dat = tibble(
 	+ labs(title = bnd
 		   # , tag = grp
 		   )
+	+ scale_fill_manual(
+		values = c('grey50','grey90')
+		, breaks = c(T,F)
+		, guide = F
+	)
 )
 
 #now save
