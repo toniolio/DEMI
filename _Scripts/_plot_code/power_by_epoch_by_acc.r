@@ -22,7 +22,8 @@ approach = 1 # approach to inference
 # 1 means non-overlapping error bars
 # 2 means the difference not being credibly zero
 
-CI = .05 # determines error bars by dividing by 2
+plotCI = .05 # determines error bars by dividing by 2
+sigCI = .05 # set "alpha" for "significance" tests (also divided by 2)
 # so, .1 = 95% CI; .05 = 97.5%, .02 = 99%, .01 = 99.5%, .002 = 99.9%
 
 #get the data to plot
@@ -58,8 +59,8 @@ CI = .05 # determines error bars by dividing by 2
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
 	%>% summarise(
-		lo = quantile(value,CI/2) # CI lower-bound
-		, hi = quantile(value,1-CI/2) #CI upper-bound
+		lo = quantile(value,plotCI/2) # CI lower-bound
+		, hi = quantile(value,1-plotCI/2) #CI upper-bound
 		, mid = value[sample==0]
 		, samples = list(tibble(value,sample)) #hack for significance labels
 		, .groups = 'drop'
@@ -84,8 +85,8 @@ CI = .05 # determines error bars by dividing by 2
 		, .groups = 'drop_last'
 	)
 	%>% summarise(
-		lo = quantile(value,CI/2) #97.5%ile lower-bound
-		, hi = quantile(value,1-CI/2) #97.5%ile upper-bound
+		lo = quantile(value,sigCI/2) #97.5%ile lower-bound
+		, hi = quantile(value,1-sigCI/2) #97.5%ile upper-bound
 		, .groups = 'drop'
 	)
 	%>% mutate(
