@@ -339,8 +339,15 @@ axis_title_dat = tibble(
 			, y = to_plot_mid
 			, group = interaction(lat,long,accuracy)
 			, colour = accuracy
+			, shape = accuracy
 		)
 		, alpha = .5
+	)
+	+ scale_shape_manual(
+		values = c(
+			"High" = 17 # triangle
+			, "Low" = 19 # square
+		)
 	)
 	# line at zero
 	+ geom_line(
@@ -366,22 +373,52 @@ axis_title_dat = tibble(
 	)
 	+ coord_equal() #important to make subpanel locations accurate
 	+ theme(
-		# legend.position = 'none'
+		legend.position = c(.9,.125) # 'none'
 		# , legend.justification = c(0,0)
 		# , legend.title = element_blank()
-		axis.title = element_blank()
+		, axis.title = element_blank()
 		, axis.ticks = element_blank()
 		, axis.text = element_blank()
 		, panel.grid = element_blank()
 		, panel.background = element_rect(fill='transparent',colour='grey90')
 	)
-	+ labs(title = bnd
-		   # , tag = grp
-		   )
+	# + labs(title = bnd
+	# 	   # , tag = grp
+	# 	   )
 	+ scale_fill_manual(
 		values = c('grey80','grey95')
 		, breaks = c(T,F)
 		, guide = F
+	)
+	+ annotate(
+		"text"
+		, color = 'grey70'
+		, x = 0
+		, y = 5
+		, label = "Anterior"
+	)
+	+ annotate(
+		"text"
+		, color = 'grey70'
+		, x = 0
+		, y = -5
+		, label = "Posterior"
+	)
+	+ annotate(
+		"text"
+		, color = 'grey70'
+		, x = 5
+		, y = 0
+		, label = "Ipsilateral"
+		, angle = 270
+	)
+	+ annotate(
+		"text"
+		, color = 'grey70'
+		, x = -5
+		, y = 0
+		, label = "Contralateral"
+		, angle = 90
 	)
 )
 
