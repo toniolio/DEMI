@@ -258,6 +258,12 @@ levels(plot1df$effect2__) <- c("Random","Repeated")
 		)
 	+ theme_minimal()
 )
+ggsave(
+	file = paste0('_Scripts/_plots/DEMI_bdat_1.pdf')
+	, plot = last_plot()
+	, width = 5
+	, height = 4
+)
 
 # use model to derive “expected skill”
 
@@ -530,6 +536,12 @@ levels(plot2df$effect2__) <- c("Imagery","Overt")
 	# )
 	+ theme_minimal()
 )
+ggsave(
+	file = paste0('_Scripts/_plots/DEMI_bdat_2.pdf')
+	, plot = last_plot()
+	, width = 5
+	, height = 4
+)
 
 
 #### Hypothesis 2 ####
@@ -630,6 +642,12 @@ cond_names <- c(
 		breaks=c(1,20,40,60,80,100,120)
 	)
 	+ theme_minimal()
+)
+ggsave(
+	file = paste0('_Scripts/_plots/DEMI_bdat_3.pdf')
+	, plot = last_plot()
+	, width = 6
+	, height = 4
 )
 
 #### Hypothesis 3 ####
@@ -752,6 +770,6 @@ cond_names <- c(
 ggsave(
 	file = paste0('_Scripts/_plots/DEMI_bdat_4.pdf')
 	, plot = last_plot()
-	, width = 5
+	, width = 6
 	, height = 4
 )
