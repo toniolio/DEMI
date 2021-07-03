@@ -59,8 +59,8 @@ sigCI = .05 # set "alpha" for "significance" tests (also divided by 2)
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
 	%>% summarise(
-		lo = quantile(value,plotCI/2) # CI lower-bound
-		, hi = quantile(value,1-plotCI/2) #CI upper-bound
+		lo = quantile(value,plotCI/2) # plot CI lower-bound
+		, hi = quantile(value,1-plotCI/2) # plot CI upper-bound
 		, mid = value[sample==0]
 		, samples = list(tibble(value,sample)) #hack for significance labels
 		, .groups = 'drop'
@@ -85,8 +85,8 @@ sigCI = .05 # set "alpha" for "significance" tests (also divided by 2)
 		, .groups = 'drop_last'
 	)
 	%>% summarise(
-		lo = quantile(value,sigCI/2) #97.5%ile lower-bound
-		, hi = quantile(value,1-sigCI/2) #97.5%ile upper-bound
+		lo = quantile(value,sigCI/2) # sig CI lower-bound
+		, hi = quantile(value,1-sigCI/2) # sig CI upper-bound
 		, .groups = 'drop'
 	)
 	%>% mutate(
@@ -111,7 +111,6 @@ sigCI = .05 # set "alpha" for "significance" tests (also divided by 2)
 		)
 	)
 ) -> to_plot
-
 
 # Now we have some mutations to apply to arrange things visually
 (
@@ -346,9 +345,13 @@ axis_title_dat = tibble(
 	+ scale_shape_manual(
 		values = c(
 			"High" = 17 # triangle
-			, "Low" = 19 # square
+			, "Low" = 19 # circle
 		)
 	)
+	+ labs(
+		colour='Accuracy'
+		, shape='Accuracy'
+		)
 	# line at zero
 	+ geom_line(
 		data = (
@@ -425,6 +428,6 @@ axis_title_dat = tibble(
 #now save
 ggsave(
 	file = paste0('_plots/',grp,'_',bnd,'_by_epoch_by_acc.pdf')
-	, width = 10
-	, height = 10
+	, width = 9
+	, height = 9
 )

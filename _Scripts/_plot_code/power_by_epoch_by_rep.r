@@ -15,8 +15,16 @@ scale_to_0range = function(x,range=1){
 #in case the preds haven't been loaded
 preds_dat = readRDS('_rds/preds_dat_re_2.rds')
 
-grp = 'imagery' # physical, imagery
+grp = 'physical' # physical, imagery
 bnd = 'theta' # theta, alpha, beta
+
+approach = 1 # approach to inference
+# 1 means non-overlapping error bars
+# 2 means the difference not being credibly zero
+
+plotCI = .05 # determines error bars by dividing by 2
+sigCI = .05 # set "alpha" for "significance" tests (also divided by 2)
+# so, .1 = 95% CI; .05 = 97.5%, .02 = 99%, .01 = 99.5%, .002 = 99.9%
 
 #get the data to plot
 (
@@ -44,19 +52,64 @@ bnd = 'theta' # theta, alpha, beta
 		, rep
 		, sample
 	)
-	# collapse to a mean, dropping accuracy from the grouping thereafter
+	# collapse to a mean, dropping sample from the grouping thereafter
 	%>% summarise(
 		value = mean(value)
 		, .groups = 'drop_last'
 	)
 	# compute uncertainty intervals and midpoint (using sample==0 for midpoint)
 	%>% summarise(
-		lo = quantile(value,.05/2) #97.5%ile lower-bound
-		, hi = quantile(value,1-.05/2) #97.5%ile upper-bound
+		lo = quantile(value,plotCI/2) # plot CI lower-bound
+		, hi = quantile(value,1-plotCI/2) # plot CI upper-bound
 		, mid = value[sample==0]
+		, samples = list(tibble(value,sample)) #hack for significance labels
 		, .groups = 'drop'
 	)
 	#save output so we don't have to re-compute if we make mistakes or tweaks below
+) -> to_plot
+
+#get "significance"
+(
+	to_plot
+	%>% select(-lo,-hi,-mid)
+	%>% unnest(samples)
+	# group by all but the one you want to collapse to a difference
+	%>% group_by(
+		lat
+		, long
+		, epoch
+		, sample
+	)
+	%>% summarise(
+		value = value[rep=='random'] - value[rep=='repeated']
+		, .groups = 'drop_last'
+	)
+	%>% summarise(
+		lo = quantile(value,sigCI/2) # sig CI lower-bound
+		, hi = quantile(value,1-sigCI/2) # sig CI upper-bound
+		, .groups = 'drop'
+	)
+	%>% mutate(
+		diff_sig = case_when(
+			(lo>0)|(hi<0) ~ T
+			, T ~ F
+		)
+		, .keep = 'unused'
+	)
+	%>% right_join(to_plot,by=c('lat','long','epoch'))
+	%>% select(-samples)
+	%>% group_by(
+		lat
+		, long
+		, epoch
+	)
+	%>% mutate(
+		indiv_sig = case_when(
+			(lo[rep=='random']>hi[rep=='repeated'])
+			| (lo[rep=='repeated']>hi[rep=='random']) ~ T
+			, T ~ F
+		)
+	)
 ) -> to_plot
 
 # Now we have some mutations to apply to arrange things visually
@@ -73,8 +126,8 @@ bnd = 'theta' # theta, alpha, beta
 		#polar to cartesian then re-scaled versions
 		x = lat*cos(long*(pi/180))
 		, y = lat*sin(long*(pi/180))
-		, x_scaled = scale_to_0range(x,9) #9 makes the plot 10x10 bc 1x1 panels will be centered on these
-		, y_scaled = scale_to_0range(y,9)
+		, x_scaled = scale_to_0range(x,8) #9 makes the plot 10x10 bc 1x1 panels will be centered on these
+		, y_scaled = scale_to_0range(y,8.5)
 
 		#here we find the min & max if we were to plot all the data in one panel
 		, min_lo = min(lo)
@@ -150,15 +203,25 @@ axis_title_dat = tibble(
 	#create a rect around each subpanel
 	+ geom_rect(
 		#use the data from the pipe (.) and use group_keys to reduce to info on the subpanels
-		data = . %>% group_keys(lat,long,x_scaled,y_scaled)
+		data = (
+			.
+			%>% group_keys(lat,long,x_scaled,y_scaled,epoch,diff_sig,indiv_sig)
+			%>% mutate(
+				x_scaled = case_when(
+					epoch=='during' ~ x_scaled-.25
+					, T ~ x_scaled+.25
+				)
+			)
+		)
 		, aes(
-			xmin = x_scaled-.5
-			, xmax = x_scaled+.5
+			xmin = x_scaled-.25
+			, xmax = x_scaled+.25
 			, ymin = y_scaled-.5
 			, ymax = y_scaled+.5
-			, group = interaction(lat,long)
+			, group = interaction(lat,long,epoch)
+			, fill = if (approach==1) indiv_sig else diff_sig
 		)
-		, fill = 'grey90'
+		# , fill = 'grey90'
 		, colour = 'transparent'
 	)
 
@@ -262,7 +325,7 @@ axis_title_dat = tibble(
 			, ymin = to_plot_lo
 			, ymax = to_plot_hi
 			, group = interaction(lat,long,rep)
-			, fill = rep
+			# , fill = rep
 		)
 		, alpha = .5
 		, width = .125 #for bar, not ribbon
@@ -275,8 +338,19 @@ axis_title_dat = tibble(
 			, y = to_plot_mid
 			, group = interaction(lat,long,rep)
 			, colour = rep
+			, shape = rep
 		)
 		, alpha = .5
+	)
+	+ scale_shape_manual(
+		values = c(
+			"random" = 17 # triangle
+			, "repeated" = 19 # circle
+		)
+	)
+	+ labs(
+		colour='Trial type'
+		, shape='Trial type'
 	)
 	# line at zero
 	+ geom_line(
@@ -302,23 +376,58 @@ axis_title_dat = tibble(
 	)
 	+ coord_equal() #important to make subpanel locations accurate
 	+ theme(
-		# legend.position = 'none'
+		legend.position = c(.9,.125) # 'none'
 		# , legend.justification = c(0,0)
 		# , legend.title = element_blank()
-		axis.title = element_blank()
+		, axis.title = element_blank()
 		, axis.ticks = element_blank()
 		, axis.text = element_blank()
 		, panel.grid = element_blank()
 		, panel.background = element_rect(fill='transparent',colour='grey90')
 	)
-	+ labs(title = bnd
-		   # , tag = grp
+	# + labs(title = bnd
+	# 	   # , tag = grp
+	# )
+	+ scale_fill_manual(
+		values = c('grey80','grey95')
+		, breaks = c(T,F)
+		, guide = F
+	)
+	+ annotate(
+		"text"
+		, color = 'grey70'
+		, x = 0
+		, y = 5
+		, label = "Anterior"
+	)
+	+ annotate(
+		"text"
+		, color = 'grey70'
+		, x = 0
+		, y = -5
+		, label = "Posterior"
+	)
+	+ annotate(
+		"text"
+		, color = 'grey70'
+		, x = 5
+		, y = 0
+		, label = "Ipsilateral"
+		, angle = 270
+	)
+	+ annotate(
+		"text"
+		, color = 'grey70'
+		, x = -5
+		, y = 0
+		, label = "Contralateral"
+		, angle = 90
 	)
 )
 
 #now save
 ggsave(
 	file = paste0('_plots/',grp,'_',bnd,'_by_epoch_by_rep.pdf')
-	, width = 10
-	, height = 10
+	, width = 9
+	, height = 9
 )
