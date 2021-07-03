@@ -9,7 +9,9 @@ library(Rfast) #for mat.mult & rmvnorm
 
 #get the model
 path <- "_Scripts/_rds/"
-gam = readRDS(paste0(path, "gam_re.rds"))
+gam = readRDS(paste0(path, "gam_re_2.rds"))
+# note "exclude" in predict.bam needs to include any re terms
+# and also note what factors are included in data_grid() below:
 
 #extract the data and get the unique combinations of predictors
 (
@@ -20,7 +22,7 @@ gam = readRDS(paste0(path, "gam_re.rds"))
 		, band
 		, epoch
 		, rep
-		, block
+		# , block
 		# get just the first and last quintile points for accuracy
 		, accuracy = quantile(accuracy,probs=c(.2,.8))
 		# nesting gets just those combos in the data
@@ -56,7 +58,9 @@ mm = mgcv::predict.bam(
 	, newdata = preds_dat
 	, type = 'lpmatrix'
 	, discrete = FALSE
-	, exclude = 's(participant)'
+	, exclude = c('s(participant)'
+				  ,'ti(lat , long , accuracy, participant)'
+				  )
 )
 
 #get the coefficients and covariance matrix
@@ -93,5 +97,5 @@ preds_dat$lat = 90-preds_dat$lat
 #save to file
 saveRDS(
 	preds_dat
-	, paste0(path,'preds_dat_re.rds')
+	, paste0(path,'preds_dat_re_2.rds')
 )
