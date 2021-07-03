@@ -15,7 +15,7 @@ scale_to_0range = function(x,range=1){
 #in case the preds haven't been loaded
 preds_dat = readRDS('_rds/preds_dat_re_2.rds')
 
-grp = 'physical' # physical, imagery
+grp = 'imagery' # physical, imagery
 bnd = 'theta' # theta, alpha, beta
 
 approach = 1 # approach to inference
