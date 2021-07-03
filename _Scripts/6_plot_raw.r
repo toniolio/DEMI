@@ -21,6 +21,8 @@ scale_to_0range = function(x,range=1){
 	%>% as_tibble()
 	%>% dplyr::filter(
 		!(group == 'imagery' & condition == 'physical') # for imagery participants, leave out the physical block
+		, !(chan == 'M1')
+		, !(chan == 'M2')
 	)
 	%>% mutate(
 		time = time + (2 * (epoch - 1))
@@ -90,10 +92,10 @@ scale_to_0range = function(x,range=1){
 #determine freqs to NA for band boundaries
 unique_freqs = unique(dat$freq)
 band_boundaries = c(
-	unique_freqs[which.min(abs(unique_freqs-4))]
-	, unique_freqs[which.min(abs(unique_freqs-8))]
-	, unique_freqs[which.min(abs(unique_freqs-16))]
-	, unique_freqs[which.min(abs(unique_freqs-32))]
+	unique_freqs[which.min(abs(unique_freqs-3.5))]
+	, unique_freqs[which.min(abs(unique_freqs-8.5))]
+	, unique_freqs[which.min(abs(unique_freqs-12.5))]
+	, unique_freqs[which.min(abs(unique_freqs-30.5))]
 )
 unique_times = unique(dat$time)
 # zero_time = unique_times[which.min(abs(unique_times))]
@@ -119,8 +121,8 @@ time_boundaries = c(
 		)
 
 		#rescaling
-		, x_scaled = scale_to_0range(x,10)
-		, y_scaled = scale_to_0range(y,10)
+		, x_scaled = scale_to_0range(x,8)
+		, y_scaled = scale_to_0range(y,8.5)
 		, time_scaled = scale_to_0range(time,1)
 		, freq_scaled = scale_to_0range(freq,1)
 
