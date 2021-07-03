@@ -155,6 +155,9 @@ if(!file.exists(paste(path, "dat_MI_test.rds", sep=""))){
 		)
 	) -> dat
 
+	# save all data in case you choose not to do train vs. test
+	saveRDS(dat, paste0(path, "dat_gam.rds"))
+
 	#### set up training and test sets ####
 
 	# separate PP vs MI data sets
