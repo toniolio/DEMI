@@ -11,7 +11,7 @@ library(mgcv)
 
 # set path for each model below.
 
-# #### train PP model ####
+# #### train PP only model ####
 #
 # if(!file.exists(paste(path, "gam_PP_summary.rds", sep=""))){
 #
@@ -133,7 +133,7 @@ library(mgcv)
 # 	# gc()
 # }
 #
-# #### train MI model ####
+# #### train MI only model ####
 #
 # if(!file.exists(paste(path, "gam_MI_summary.rds", sep=""))){
 #
@@ -257,15 +257,19 @@ library(mgcv)
 
 #### run both group model ####
 
-# load training data
-path <- "_Scripts/_rds/"
-dat_PP_train = readRDS(paste0(path, "dat_PP_train.rds"))
-dat_MI_train = readRDS(paste0(path, "dat_MI_train.rds"))
+# # load training data only
+# path <- "_Scripts/_rds/"
+# dat_PP_train = readRDS(paste0(path, "dat_PP_train.rds"))
+# dat_MI_train = readRDS(paste0(path, "dat_MI_train.rds"))
+#
+# dat_train <- rbind(dat_PP_train
+# 			 , dat_MI_train
+# )
+# rm(dat_PP_train,dat_MI_train)
 
-dat_train <- rbind(dat_PP_train
-			 , dat_MI_train
-)
-rm(dat_PP_train,dat_MI_train)
+# load all data
+path <- "_Scripts/_rds/"
+dat_train = readRDS(paste0(path, "dat_gam.rds"))
 
 # consider moving all of below to previous script
 
@@ -282,54 +286,102 @@ contrasts(dat_train$epoch) = halfsum_contrasts
 contrasts(dat_train$rep) = halfsum_contrasts
 dat_train$block = dat_train$block-3
 
-#-------------------------------#
-# mgcv version; no subject 're' #
-#-------------------------------#
+# remove final block:
+dat_train <- (
+	dat_train
+	%>% dplyr::filter(
+		block < max(block)
+	)
+)
+# consider removing M1 and M2 as these are typically just reference sensors
+dat_train <- (
+	dat_train
+	%>% dplyr::filter(
+		chan != 'M1'
+		, chan != 'M2'
+	)
+)
 
-# system.time(
-# 	gam <- mgcv::bam(
-# 		formula = powerdb ~ (
-# 			group * band * epoch * rep + te(
-# 				lat , long , accuracy , block
-# 				, by=interaction( group , band , epoch , rep )
-# 				, d = c(2,1,1)
-# 				, bs = c("sos","cr","cr")
-# 				, k = c(31 # k = 32 locations - 1
-# 						,9 # k = 10 possible responses - 1
-# 						,5) # k = imagery only has 5 blocks - 1
-# 				)
-# 			)
-# 		, data = dat_train
-# 		, method = "fREML"
-# 		, discrete = TRUE
-# 		, nthreads = floor(parallel::detectCores())
-# 		, gc.level = 0
-# 		)
-# 	)
-# saveRDS(gam,file=paste0(path, "gam.rds"))
-# system.time(
-# 	gam_summary <- summary(gam)
-# )
-# gam_summary
-# saveRDS(gam_summary,file=paste0(path, "gam_summary.rds"))
-# rm(list=ls())
-# gc()
+#### Participant Characterization ####
+
+# NOTE from "3_behav_analysis.R":
+bdat <- readRDS("_Scripts/_rds/bdat2.rds")
+unique(sort(bdat$participant))
+# lost due to experimenter error (wrong experiment): 9, 10, 12, 14, 20,
+# didn't complete experiment (tech issue): 89, 96, 100
+# lost due to very bad EEG: 24
+# id skipped: 13, 26, 36, 78
+
+# then for further eeg analysis:
+unique(sort(dat_train$participant))
+# experimenter error (eeg not recorded): 6,7,11
+# technical error (triggers missing): 54, 56
+# technical error (software crash): 65
+# technical error (VEOL did not record): 86
+
+# In total we lose 7 more due to EEG related technical errors. For the
+# behavioral analysis, we had 96 recruited, and 9 dropped due to technical
+# issues with the experimental setup.
+
+# Therefore in the paper we describe that we recruited 96 and lost 16 due to
+# technical errors. Total remianing = 80.
+
+# remove these from bdat:
+bdat <- (
+	bdat
+	%>% dplyr::filter(
+		!(participant) %in% c(6,7,11,54,56,65,86)
+	)
+)
+
+unique(sort(subset(bdat, group =='physical')$participant))
+unique(sort(subset(bdat, group =='imagery')$participant))
+
+# age:
+
+print("mean (sd) age for all participants:")
+mean(bdat[!duplicated(bdat$participant),]$age)
+sd(bdat[!duplicated(bdat$participant),]$age)
+
+print("mean (sd) age for each group:")
+bdat[!duplicated(bdat$participant),] %>%
+	group_by(group) %>%
+	summarise( count = length(unique(participant))
+			   , agemean = mean(age)
+			   , agesd = sd(age)
+	)
+
+# bio sex
+
+bdat[!duplicated(bdat$participant),] %>%
+	group_by(group) %>%
+	count(sex)
+
+# handedness
+
+bdat[!duplicated(bdat$participant),] %>%
+	group_by(group) %>%
+	count(handedness)
+
+
+
+#### run model ####
 
 #---------------------------------#
-# mgcv version; with subject 're' #
+# full version; with subject 're' #
 #---------------------------------#
 
 system.time(
-	gam_re <- mgcv::bam(
+	gam_re_1 <- mgcv::bam(
 		formula = powerdb ~ (
 			group * band * epoch * rep + te(
 				lat , long , accuracy , block
 				, by=interaction( group , band , epoch , rep )
 				, d = c(2,1,1)
 				, bs = c("sos","cr","cr")
-				, k = c(31 # k = 32 locations - 1
+				, k = c(29 # k = 30 locations - 1
 						,9 # k = 10 possible responses - 1
-						,5) # k = imagery only has 5 blocks - 1
+						,4) # k = imagery only has 5 blocks - 1
 			) + s(
 				participant
 				, bs = "re"
@@ -343,44 +395,175 @@ system.time(
 		, gc.level = 0
 	)
 )
-saveRDS(gam_re,file=paste0(path, "gam_re.rds"))
+saveRDS(gam_re_1,file=paste0(path, "gam_re_1.rds"))
 system.time(
-	gam_re_summary <- summary(gam_re)
+	gam_re_1_summary <- summary(gam_re_1)
 )
-gam_re_summary
-saveRDS(gam_re_summary,file=paste0(path, "gam_re_summary.rds"))
-rm(list=ls())
+gam_re_1_summary
+saveRDS(gam_re_1_summary,file=paste0(path, "gam_re_1_summary.rds"))
+rm(gam_re_1, gam_re_1_summary)
 gc()
 
-#-------------------------------#
-# brms version; no subject 're' #
-#-------------------------------#
+#----------------------------------#
+# without block; with subject 're' #
+#----------------------------------#
 
-# system.time(
-# 	gam_brms <- brms::brm(
-# 		formula = powerdb ~ (
-# 			group * band * epoch * rep + t2(
-# 				lat , long , accuracy , block
-# 				, by=interaction( group , band , epoch , rep )
-# 				, d = c(2,1,1)
-# 				, bs = c("sos","cr","cr")
-# 				, k = c(31 # k = 32 locations - 1
-# 						,9 # k = 10 possible responses - 1
-# 						,5) # k = imagery only has 5 blocks - 1
-# 				)
-# 			)
-# 		, data = dat_train
-# 		, silent = F
-# 		, refresh = 20
-# 		, iter = 2000
-# 		, chains = floor(parallel::detectCores())
-# 		, cores = floor(parallel::detectCores())
-# 		)
-# 	)
-# saveRDS(gam_brms,file=paste0(path, "gam_brms.rds"))
-# system.time(
-# 	gam_brms_summary <- summary(gam_brms)
-# )
-# saveRDS(gam_brms_summary,file=paste0(path, "gam_brms_summary.rds"))
-# rm(list=ls())
-# gc()
+system.time(
+	gam_re_2 <- mgcv::bam(
+		formula = powerdb ~ (
+			group * band * epoch * rep + te(
+				lat , long , accuracy
+				, by=interaction( group , band , epoch , rep )
+				, d = c(2,1)
+				, bs = c("sos","cr")
+				, k = c(29 # k = 30 locations - 1
+						,9) # k = 10 possible responses - 1
+			) + s(
+				participant
+				, bs = "re"
+				, k = 79 # k = 80 participants - 1
+			)
+		)
+		, data = dat_train
+		, method = "fREML"
+		, discrete = TRUE
+		, nthreads = floor(parallel::detectCores())
+		, gc.level = 0
+	)
+)
+saveRDS(gam_re_2,file=paste0(path, "gam_re_2.rds"))
+system.time(
+	gam_re_2_summary <- summary(gam_re_2)
+)
+gam_re_2_summary
+saveRDS(gam_re_2_summary,file=paste0(path, "gam_re_2_summary.rds"))
+rm(gam_re_2, gam_re_2_summary)
+gc()
+
+#-----------------------------------------#
+# without block or rep; with subject 're' #
+#-----------------------------------------#
+
+system.time(
+	gam_re_3 <- mgcv::bam(
+		formula = powerdb ~ (
+			group * band * epoch + te(
+				lat , long , accuracy
+				, by=interaction( group , band , epoch )
+				, d = c(2,1)
+				, bs = c("sos","cr")
+				, k = c(29 # k = 30 locations - 1
+						,9) # k = 10 possible responses - 1
+			) + s(
+				participant
+				, bs = "re"
+				, k = 79 # k = 80 participants - 1
+			)
+		)
+		, data = dat_train
+		, method = "fREML"
+		, discrete = TRUE
+		, nthreads = floor(parallel::detectCores())
+		, gc.level = 0
+	)
+)
+saveRDS(gam_re_3,file=paste0(path, "gam_re_3.rds"))
+system.time(
+	gam_re_3_summary <- summary(gam_re_3)
+)
+gam_re_3_summary
+saveRDS(gam_re_3_summary,file=paste0(path, "gam_re_3_summary.rds"))
+rm(gam_re_3, gam_re_3_summary)
+gc()
+
+#---------------------------------------------------------#
+# without block or rep; with subject 're' and subject 'ti #
+#---------------------------------------------------------#
+
+system.time(
+	gam_re_4 <- mgcv::bam(
+		formula = powerdb ~ (
+			group * band * epoch + te(
+				lat , long , accuracy
+				, by=interaction( group , band , epoch )
+				, d = c(2,1)
+				, bs = c("sos","cr")
+				, k = c(29 # 30 locations - 1
+						,9 # 10 possible responses - 1
+						)
+			) + s(
+				participant
+				, bs = "re"
+				, k = 79 # 80 participants - 1
+			) + ti(
+				lat , long , accuracy, participant
+				# , by=interaction( group , band , epoch )
+				, d = c(2,1,1)
+				, bs = c("sos","cr","re")
+				, k = c(29 # 30 locations - 1
+						,9 # 10 possible responses - 1
+						,79 # 80 participants - 1
+						)
+			)
+		)
+		, data = dat_train
+		, method = "fREML"
+		, discrete = TRUE
+		, nthreads = floor(parallel::detectCores())
+		, gc.level = 0
+	)
+)
+saveRDS(gam_re_4,file=paste0(path, "gam_re_4.rds"))
+system.time(
+	gam_re_4_summary <- summary(gam_re_4)
+)
+gam_re_4_summary
+saveRDS(gam_re_4_summary,file=paste0(path, "gam_re_4_summary.rds"))
+rm(gam_re_4, gam_re_4_summary)
+gc()
+
+#--------------------------------------------------#
+# without block; with subject 're' and subject 'ti #
+#--------------------------------------------------#
+
+system.time(
+	gam_re_5 <- mgcv::bam(
+		formula = powerdb ~ (
+			group * band * epoch * rep + te(
+				lat , long , accuracy
+				, by=interaction( group , band , epoch, rep )
+				, d = c(2,1)
+				, bs = c("sos","cr")
+				, k = c(29 # 30 locations - 1
+						,9 # 10 possible responses - 1
+				)
+			) + s(
+				participant
+				, bs = "re"
+				, k = 79 # 80 participants - 1
+			) + ti(
+				lat , long , accuracy, participant
+				# , by=interaction( group , band , epoch , rep )
+				, d = c(2,1,1)
+				, bs = c("sos","cr","re")
+				, k = c(29 # 30 locations - 1
+						,9 # 10 possible responses - 1
+						,79 # 80 participants - 1
+				)
+			)
+		)
+		, data = dat_train
+		, method = "fREML"
+		, discrete = TRUE
+		, nthreads = floor(parallel::detectCores())
+		, gc.level = 0
+	)
+)
+saveRDS(gam_re_5,file=paste0(path, "gam_re_5.rds"))
+system.time(
+	gam_re_5_summary <- summary(gam_re_5)
+)
+gam_re_5_summary
+saveRDS(gam_re_5_summary,file=paste0(path, "gam_re_5_summary.rds"))
+rm(gam_re_5, gam_re_5_summary)
+gc()
