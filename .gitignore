@@ -1,0 +1,33 @@
+# R cruft
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# Data (big)
+data/
+!data/.gitkeep
+
+# Allow .gitkeep anywhere
+!**/.gitkeep
+
+# Model artifacts
+*.rds
+*_rds/
+.RData
+
+# Outputs (allow selected for now)
+outputs/figures/*
+outputs/tables/*
+!outputs/figures/figure_main_maxT.pdf
+!outputs/figures/figure_main_maxT.png
+!outputs/tables/main_hypotheses_summary.csv
+!outputs/tables/posthoc_maps_summary.csv
+
+# OS
+.DS_Store
+Thumbs.db
+.Rproj.user
+.Rdata
+.httr-oauth
+.quarto
