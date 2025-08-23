@@ -1,0 +1,50 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the repository and the related articles."
+title: "DEMI: Behavior-only analysis (00–03) and scaffolding for EEG/GAM"
+version: 0.1.0
+date-released: 2025-08-23
+authors:
+  - family-names: Ingram
+    given-names: Tony G. J.
+    orcid: "https://orcid.org/0000-0003-1213-7920"
+    email: "4839788+toniolio@users.noreply.github.com"
+repository-code: "https://github.com/toniolio/DEMI"
+license: MIT
+type: software
+preferred-citation:
+  type: software
+  title: "DEMI analysis code"
+  authors:
+    - family-names: Ingram
+      given-names: Tony G. J.
+  year: 2025
+  url: "https://github.com/toniolio/DEMI"
+related-resources:
+  - type: article
+    title: "Imagined Movement Accuracy Is Strongly Associated With Drivers of Overt Movement Error and Weakly Associated With Imagery Vividness"
+    authors:
+      - family-names: Ingram
+        given-names: Tony G. J.
+      - family-names: Hurst
+        given-names: A. J.
+      - family-names: Solomon
+        given-names: J. P.
+      - family-names: Stratas
+        given-names: A.
+      - family-names: Boe
+        given-names: S. G.
+    journal: "Journal of Experimental Psychology: Human Perception and Performance"
+    year: 2022
+    volume: "48"
+    issue: "12"
+    start: "1362"
+    end: "1372"
+    doi: "10.1037/xhp0001064"
+  - type: article
+    title: "EEG error-related signatures in Motor Imagery vs Overt Movement via hierarchical GAMs"  # working title
+    authors:
+      - family-names: Ingram
+        given-names: Tony G. J.
+      # add co-authors when finalized
+    year: 2025
+    notes: "Manuscript in preparation"
