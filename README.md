@@ -1,4 +1,4 @@
-# Detecting Error in Motor Imagery (DEMI)
+# Detecting Errors in Motor Imagery (DEMI)
 
 Analysis code for the DEMI project. This repo currently contains the **behavior-only** analysis (scripts **00–03**) as used in the published study below. The **EEG + hierarchical GAM** work (scripts 04+) will be added in a later pass.
 
