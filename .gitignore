@@ -1,4 +1,5 @@
 # R cruft
+*.Rproj
 .Rproj.user/
 .Rhistory
 .RData
