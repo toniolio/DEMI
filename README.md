@@ -5,8 +5,7 @@ Analysis code for the DEMI project. This repo currently contains the **behavior-
 ## Layout
 - `R/00–03` — behavior analysis (unchanged)
 - `legacy/dissertation/` — archival dissertation-era repo (read-only import)
-- `data/` — local only; not tracked
-- `outputs/` — small tables/figures (if any)
+- `_Data/` — local only; gitignore'd
 
 ## References
 - Ingram, T. G. J., Hurst, A. J., Solomon, J. P., Stratas, A., & Boe, S. G. (2022).
