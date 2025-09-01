@@ -5,8 +5,8 @@
 .Ruserdata
 
 # Data (big)
-data/
-!data/.gitkeep
+_Data/
+!_Data/.gitkeep
 
 # Allow .gitkeep anywhere
 !**/.gitkeep
