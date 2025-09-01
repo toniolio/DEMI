@@ -76,7 +76,7 @@ generated quantities{
 			fast_scale_intercept + fast_scale_stim_speed_effect*4
 		)
 	) ;
-	int is_fast[num_obs] ;
+	array[num_obs] int is_fast ;
 	vector[num_obs] good_cdf ;
 	{
 		vector[num_obs] lppr = fast_lpdf - good_lpdf ; // log posterior probability ratio
