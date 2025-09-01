@@ -51,7 +51,7 @@ library(cmdstanr)
 (
 	dat
 	%>% dplyr::mutate(
-		obs = base::scale(obs,center=F)
+		obs = as.numeric(base::scale(obs, center = FALSE))
 	)
 	%>% dplyr::filter(
 		stim_speed>2.4
