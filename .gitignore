@@ -11,6 +11,9 @@ _Data/
 # Allow .gitkeep anywhere
 !**/.gitkeep
 
+# Preprocessing artifacts
+/filters/
+
 # Model artifacts
 *.rds
 *_rds/
