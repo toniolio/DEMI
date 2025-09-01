@@ -8,6 +8,7 @@ library(tidyverse)
 library(brms)
 library(bayestestR)
 
+# not used but potentially useful:
 # r2.corr.mer <- function(m) {
 # 	lmfit <-  lm(model.response(model.frame(m)) ~ fitted(m))
 # 	summary(lmfit)$r.squared
@@ -92,7 +93,7 @@ dat$blockz = dat$block_num-3
 #### Participant Characterization ####
 
 # note this is for behavioural analysis only
-# for the participants in the EEG paper, see "run_gams.R"
+# for the participants in the EEG paper, see later scrips: e.g., "run_gams.R"
 
 unique(sort(dat$participant))
 # lost due to experimenter error: 9, 10, 12, 14, 20,
