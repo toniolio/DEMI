@@ -15,6 +15,19 @@ _Data/
 # Preprocessing artifacts
 /filters/
 
+# Stan build artifacts (keep only .stan and an optional README)
+# Ignore everything in the stan folder...
+/_Scripts/_stan/*
+# ...but keep .stan sources (and a small README if you add one)
+!/_Scripts/_stan/*.stan
+!/_Scripts/_stan/README.md
+
+# If any compiler byproducts sneak in (platform-specific)
+/_Scripts/_stan/*.hpp
+/_Scripts/_stan/*.exe
+/_Scripts/_stan/*.o
+/_Scripts/_stan/*.dSYM/
+
 # Model artifacts
 *.rds
 *_rds/
