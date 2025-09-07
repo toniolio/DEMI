@@ -629,7 +629,7 @@ H2 <- (
 		, silent = F
 		, refresh = 20
 		, chains = floor(parallel::detectCores())
-		, iter = 10000
+		, iter = 2000 # used 10000 in published paper
 		, cores = floor(parallel::detectCores())
 		, control = list(adapt_delta = .95)
 	)
