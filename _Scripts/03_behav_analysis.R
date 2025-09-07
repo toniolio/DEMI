@@ -555,7 +555,7 @@ levels(plot2df$effect2__) <- c("Imagery","Overt")
 			color = effect2__
 			, linetype = effect2__
 		)
-		, size = .5
+		, linewidth = .5
 	)
 	+ geom_ribbon(
 		aes(
