@@ -1,0 +1,3 @@
+[submodule "external/DEMI_EEG_Pipeline"]
+	path = external/DEMI_EEG_Pipeline
+	url = https://github.com/LBRF/DEMI_EEG_Pipeline
