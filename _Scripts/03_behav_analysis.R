@@ -617,6 +617,8 @@ ggsave(
 # physical trials, it will. After all, no representation can be formed and
 # therefore updated from some kind of error signal.
 
+# note: to run the following, you have to "define skill" from the Hypothesis 1 code.
+
 H2 <- (
 	dat
 	%>% brms::brm(
