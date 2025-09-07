@@ -6,47 +6,58 @@
 .Ruserdata
 README.html
 
-# Data (big)
+# Local data (keep everything out of Git)
 _Data/
 !_Data/.gitkeep
 
-# Allow .gitkeep anywhere
+# EEG raw & prepped files (belt-and-braces in case files appear elsewhere)
+*.edf
+*.EDF
+*.eeg
+*.EEG
+*.vhdr
+*.vmrk
+*.fif
+*.set
+*.bdf
+*.BDF
+
+# BIDS-style folders anywhere (if ever generated here)
+bids/
+BIDS/
+output/
+
+# Allow .gitkeep anywhere so empty dirs can be tracked
 !**/.gitkeep
 
-# Preprocessing artifacts
-/filters/
+# Preprocessing / QC artefacts
+/_Scripts/_plots/
 
-# Stan build artifacts (keep only .stan and an optional README)
-# Ignore everything in the stan folder...
-/_Scripts/_stan/*
-# ...but keep .stan sources (and a small README if you add one)
+# Stan build artefacts (keep only .stan sources)
+_/Scripts/_stan/*
 !/_Scripts/_stan/*.stan
 !/_Scripts/_stan/README.md
-
-# If any compiler byproducts sneak in (platform-specific)
 /_Scripts/_stan/*.hpp
 /_Scripts/_stan/*.exe
 /_Scripts/_stan/*.o
 /_Scripts/_stan/*.dSYM/
 
-# Model artifacts
+# Model artefacts (RDS generally excluded)
 *.rds
 *_rds/
 .RData
 
-# Outputs (allow selected for now)
-/_Scripts/_plots/
-outputs/figures/*
-outputs/tables/*
-!outputs/figures/figure_main_maxT.pdf
-!outputs/figures/figure_main_maxT.png
-!outputs/tables/main_hypotheses_summary.csv
-!outputs/tables/posthoc_maps_summary.csv
+# Optional outputs allowlist (commented out until used)
+# outputs/figures/*
+# outputs/tables/*
+# !outputs/figures/figure_main_maxT.pdf
+# !outputs/figures/figure_main_maxT.png
+# !outputs/tables/main_hypotheses_summary.csv
+# !outputs/tables/posthoc_maps_summary.csv
 
-# OS
+# OS / miscellany
 .DS_Store
 Thumbs.db
-.Rproj.user
 .Rdata
 .httr-oauth
 .quarto
