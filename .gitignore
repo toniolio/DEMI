@@ -6,11 +6,27 @@
 .Ruserdata
 README.html
 
-# Local data (keep everything out of Git)
+# Local data: ignore everything under _Data/
 _Data/
+
+# Keep a placeholder file if you want the dir present
 !_Data/.gitkeep
 
-# EEG raw & prepped files (belt-and-braces in case files appear elsewhere)
+# Re-enable the eeg subdir JUST so we can selectively allow one file
+!_Data/eeg/
+
+# Re-ignore everything inside eeg by default...
+_Data/eeg/*
+
+# ...but allow exactly the channel map file
+!_Data/eeg/BESA-81.csv
+
+# Ensure these stay ignored explicitly
+_Data/eeg/prep_info.csv
+_Data/eeg/edfs/
+_Data/eeg/edfs/**
+
+# Extra safety: ignore common EEG formats anywhere (belt & braces)
 *.edf
 *.EDF
 *.eeg
@@ -22,38 +38,21 @@ _Data/
 *.bdf
 *.BDF
 
-# BIDS-style folders anywhere (if ever generated here)
-bids/
-BIDS/
-output/
-
-# Allow .gitkeep anywhere so empty dirs can be tracked
-!**/.gitkeep
-
 # Preprocessing / QC artefacts
 /_Scripts/_plots/
+/filters/
 
 # Stan build artefacts (keep only .stan sources)
-_/Scripts/_stan/*
+# ignore everything in the stan folder...
+/_Scripts/_stan/*
+# ...but keep stan sources and an optional README
 !/_Scripts/_stan/*.stan
 !/_Scripts/_stan/README.md
-/_Scripts/_stan/*.hpp
-/_Scripts/_stan/*.exe
-/_Scripts/_stan/*.o
-/_Scripts/_stan/*.dSYM/
 
-# Model artefacts (RDS generally excluded)
+# Model artefacts
 *.rds
 *_rds/
 .RData
-
-# Optional outputs allowlist (commented out until used)
-# outputs/figures/*
-# outputs/tables/*
-# !outputs/figures/figure_main_maxT.pdf
-# !outputs/figures/figure_main_maxT.png
-# !outputs/tables/main_hypotheses_summary.csv
-# !outputs/tables/posthoc_maps_summary.csv
 
 # OS / miscellany
 .DS_Store
