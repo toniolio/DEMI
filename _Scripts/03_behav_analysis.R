@@ -328,7 +328,8 @@ expected_skillz <- predict(H1
 						  , newdata = dat # use all data
 						  , re_formula = NULL # include participant effects
 						  , summary = TRUE
-						  , cores = floor(parallel::detectCores())
+						  #, cores = floor(parallel::detectCores())
+						  , ndraws = 500
 )
 
 dat$expected_skillz <- expected_skillz[,1]
