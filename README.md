@@ -27,6 +27,10 @@ Below are two representative figures from the published behaviour analyses.
 
 *(Exact figure generation lives in scripts 00–03; raw/large data are not distributed.)*
 
+## Paper 2
+
+Note: EEG preprocessing (prerequisite): Before running R scripts 04+, run the TraceLab EEG pipeline first to produce preprocessed EDF+ files (and prep_info.csv), then place them under /_Data/eeg/edfs/ and /_Data/eeg/prep_info.csv.
+
 ## Data availability
 Individual-level data are not posted here. If you require access for bona fide reproducibility, please contact the author; access may depend on ethics/consent constraints.
 
