@@ -179,7 +179,7 @@ wavelet_transform_id <- function(
 # 'real_trace_start' and 'real_trace_end' triggers based on the actual tracing
 # starts and ends (as determined by the filtered tracing data)
 
-update_events <- function(eeg_events, epoch_offsets) {
+update_events <- function(eeg_events, epoch_offsets, sr) {
 
   # Gather all triggers from EEG data and compute trial numbers & figure speeds
 
@@ -300,14 +300,15 @@ update_events <- function(eeg_events, epoch_offsets) {
 
   # Coerce updated events data back into eeguana's custom 'events_tbl' class
 
-  eeg_hz <- attributes(eeg_events$.initial)$sampling_rate
-  new_events <- new_events %>%
-    mutate(
-      .initial = as_sample_int(.initial, sampling_rate = eeg_hz, .unit = "ms"),
-      .final = as_sample_int(.final, sampling_rate = eeg_hz, .unit = "ms")
-    )
+  stopifnot(is.numeric(sr), length(sr) == 1L, is.finite(sr))
 
-  new_events <- data.table(new_events)
+  new_events <- new_events %>%
+  	dplyr::mutate(
+  		.initial = as_sample_int(.initial, .sampling_rate = sr, .unit = "ms"),
+  		.final   = as_sample_int(.final,   .sampling_rate = sr, .unit = "ms")
+  	)
+
+  new_events <- data.table::data.table(new_events)
   data.table::setattr(new_events, "class", c("events_tbl", class(new_events)))
 
   new_events
