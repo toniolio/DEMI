@@ -285,7 +285,7 @@ levels(plot1df$effect2__) <- c("Random","Repeated")
 	+ theme(legend.title=element_blank())
 )
 ggsave(
-	file = paste0('_Scripts/_plots/Fig2_90mm.jpeg')
+	file = paste0('_Plots/Fig2_90mm.jpeg')
 	, plot = last_plot()
 	, units = "mm"
 	, width = 90
@@ -601,7 +601,7 @@ levels(plot2df$effect2__) <- c("Imagery","Overt")
 	+ theme(legend.title=element_blank())
 )
 ggsave(
-	file = paste0('_Scripts/_plots/Fig3_90mm.jpeg')
+	file = paste0('_Plots/Fig3_90mm.jpeg')
 	, plot = last_plot()
 	, units = "mm"
 	, width = 90
@@ -720,7 +720,7 @@ cond_names <- c(
 	+ theme(legend.title=element_blank())
 )
 ggsave(
-	file = paste0('_Scripts/_plots/Fig4_90mm.jpeg')
+	file = paste0('_Plots/Fig4_90mm.jpeg')
 	, plot = last_plot()
 	, units = "mm"
 	, width = 90
@@ -854,7 +854,7 @@ cond_names <- c(
 )
 # saves last plot
 ggsave(
-	file = paste0('_Scripts/_plots/Fig5_90mm.jpeg')
+	file = paste0('_Plots/Fig5_90mm.jpeg')
 	, plot = last_plot()
 	, units = "mm"
 	, width = 90
