@@ -18,7 +18,7 @@ options(clustermq.scheduler = "multicore")
 # -------------------------
 # User options
 # -------------------------
-use_cached_means <- TRUE   # reuse _Scripts/_rds/participants_mean/*.rds if present
+use_cached_means <- TRUE  # reuse _Scripts/_rds/participants_mean/*.rds if present
 
 # Channel-grid spread (moves sensor centers farther apart/closer together)
 #   ↑ Increase to spread centers out; decrease to bring them closer.
@@ -489,15 +489,9 @@ if (use_cached_means) {
 				x = if_else(handedness == 'l', -x_raw, x_raw),
 				y = y_raw
 			) %>%
-			mutate(epoch_num = case_when(
-				epoch %in% c("tracing", 1L, "1") ~ 1L,
-				epoch %in% c("post_trace", 2L, "2") ~ 2L,
-				TRUE ~ NA_integer_
-			))
-		if (any(is.na(dt$epoch_num))) {
-			bad_epochs <- dt %>% filter(is.na(epoch_num)) %>% distinct(epoch) %>% pull(epoch)
-			stop("Unrecognized epoch values in ", f, ": ", paste(unique(bad_epochs), collapse=", "))
-		}
+			mutate(epoch_num = if_else(epoch == "during", 1L,
+									   if_else(epoch == "after",  2L, NA_integer_))) %>%
+			{ if (any(is.na(.$epoch_num))) stop("Non-canonical epoch present in 06 input."); . }
 
 		dt_p <- dt %>%
 			group_by(group, participant, chan, x, y, time, freq, epoch_num) %>%
