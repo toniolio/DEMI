@@ -182,6 +182,15 @@ for (id in subject_ids) {
 		rm(baseline_wt)
 	}
 
+	# Canonicalize epoch names in shard just before saving
+	# (expect only tracing/post_trace above; map to during/after for all downstream use)
+	epoched_wt[, epoch := as.character(epoch)]
+	u_epoch <- sort(unique(epoched_wt$epoch))
+	if (!all(u_epoch %in% c("tracing","post_trace")))
+		stop("Unexpected epoch labels in shard: ", paste(u_epoch, collapse=", "))
+	epoched_wt[epoch == "tracing",    epoch := "during"]
+	epoched_wt[epoch == "post_trace", epoch := "after"]
+
 	# Persist shard, GC (match original front column order; others retained)
 	outfile <- file.path(participants_rds_path, paste0(id, "_eeg_processed.rds"))
 	setcolorder(epoched_wt, c("trial","epoch","chan","freq"))
