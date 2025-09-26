@@ -2,12 +2,7 @@
 ### 06_eeg_plots.R ###
 ######################
 # Plots (per participant + group mean) the full time-frequency map at every sensor.
-# Visuals match the original scripts. This version:
-#   - Removes the embedded legend grob (stabilizes multi-page PDF device)
-#   - Keeps caching, spacing knobs, labels, and the example “key” tile
-#   - Adds verbose progress logs
-#   - Restores a correct bottom-right colorbar (matching the page palette)
-#   - Key tile shows BOTH epochs and matches a true panel footprint
+# It's a big, busy plot for visual inspection of all the EEG data.
 
 suppressPackageStartupMessages({
 	library(tidyverse)
@@ -27,8 +22,8 @@ use_cached_means <- TRUE   # reuse _Scripts/_rds/participants_mean/*.rds if pres
 
 # Channel-grid spread (moves sensor centers farther apart/closer together)
 #   ↑ Increase to spread centers out; decrease to bring them closer.
-scalp_scale_x <- 10.0
-scalp_scale_y <- 13.0
+scalp_scale_x <- 10.5
+scalp_scale_y <- 14.5
 
 # Panel footprint (how big each time×freq tile is around its center)
 #   ↓ Smaller values = smaller tiles → more whitespace between panels.
@@ -132,7 +127,7 @@ plot_participant <- function(this_participant_data, all_participants_powerdb_ran
 			all_participants_powerdb_range
 		}
 
-	# panel layout coords (centers fixed by canonical head coords; panel footprint via panel_scale_*)
+	# panel layout coords (centers fixed by canonical head coords; tile footprint via panel_scale_*)
 	dat <- this_participant_data %>%
 		mutate(
 			x_scaled    = scale_to_bounds(x, -X_ABS,  X_ABS,  range = scalp_scale_x),
@@ -172,19 +167,27 @@ plot_participant <- function(this_participant_data, all_participants_powerdb_ran
 			 " (group: ", paste(unique(dat$group), collapse = ","), ")")
 	}
 
+	# median panel bbox (in plot coords) — use as our unit for the key & axis geometry
+	w_med <- median(vapply(channel_rasters, function(cr) cr$xmax - cr$xmin, numeric(1)), na.rm = TRUE)
+	h_med <- median(vapply(channel_rasters, function(cr) cr$ymax - cr$ymin, numeric(1)), na.rm = TRUE)
+
 	# canonical canvas limits
 	x_scaled_master <- scale_to_bounds(c(-X_ABS, X_ABS), -X_ABS, X_ABS, range = scalp_scale_x)
 	y_scaled_master <- scale_to_bounds(c(Y_MIN, Y_MAX),  Y_MIN,  Y_MAX, range = scalp_scale_y)
 	x_lim <- range(x_scaled_master) + c(-.5, +.5)
 	y_lim <- range(y_scaled_master) + c(-.5, +.5)
 
-	# axis offsets inside limits
-	x_pad <- 0.8
-	y_pad <- 0.8
-	y_axis_x_offset <- x_lim[1] + x_pad
-	y_axis_y_offset <- y_lim[1] + y_pad
-	x_axis_x_offset <- y_axis_x_offset + .5
-	x_axis_y_offset <- y_axis_y_offset - .5
+	# --- Anchor the key/axes near the lower-left corner using panel-sized padding ---
+	x_pad_units <- 1.2 * w_med
+	y_pad_units <- 1.5 * h_med
+
+	# y-axis anchor is the LEFT edge of the key; y-axis Y value is the *center* of the key
+	y_axis_x_offset <- x_lim[1] + x_pad_units
+	y_axis_y_offset <- y_lim[1] + y_pad_units + 0.5*h_med
+
+	# x-axis baseline is the BOTTOM edge of the key
+	x_axis_x_offset <- y_axis_x_offset + 0.5*w_med
+	x_axis_y_offset <- y_axis_y_offset - 0.5*h_med
 
 	p <- ggplot() +
 		scale_x_continuous(limits = x_lim) +
@@ -231,7 +234,7 @@ plot_participant <- function(this_participant_data, all_participants_powerdb_ran
 			hjust = 1, vjust = 1
 		)
 
-	# ===== Axis guides (linewidth=… removes the size/line deprecation warning) =====
+	# ===== Axis guides (all sizes proportional to panel w/h so the key axes align) =====
 
 	# x “tick” locations come from NA stripes
 	x_tick_locs <- dat %>%
@@ -246,67 +249,67 @@ plot_participant <- function(this_participant_data, all_participants_powerdb_ran
 	y_tick_locs <- c(-.5, y_tick_locs, .5)
 	y_label_locs <- y_tick_locs[1:(length(y_tick_locs)-1)] + diff(y_tick_locs)/2
 
-	# vertical axis line at left
+	# vertical axis line at left (across full key height)
 	y_axis_dat_ticks <- tibble(
 		to_plot_x = rep(y_axis_x_offset, length(y_tick_locs)),
-		to_plot_y = y_tick_locs + y_axis_y_offset
+		to_plot_y = y_tick_locs * h_med + y_axis_y_offset  # scale panel [-.5..+.5] into key height
 	)
 
 	# y-axis tick segments (short horizontals)
 	y_ticks_seg <- tibble(
-		x    = y_axis_x_offset - .05,
+		x    = y_axis_x_offset - 0.05 * w_med,
 		xend = y_axis_x_offset,
-		y    = y_tick_locs + y_axis_y_offset,
-		yend = y_tick_locs + y_axis_y_offset
+		y    = y_tick_locs * h_med + y_axis_y_offset,
+		yend = y_tick_locs * h_med + y_axis_y_offset
 	)
 
 	# y-axis labels
 	y_axis_dat_labels <- tibble(
 		label = c('delta','theta','alpha','beta','gamma'),
-		to_plot_x = y_axis_x_offset - .1,
-		to_plot_y = y_label_locs + y_axis_y_offset
+		to_plot_x = y_axis_x_offset - 0.10 * w_med,
+		to_plot_y = y_label_locs * h_med + y_axis_y_offset
 	)
 
-	# x-axis line (bottom)
+	# x-axis line (bottom of key)
 	x_axis_dat_big_ticks <- tibble(
-		to_plot_x = c(-.5, x_tick_locs[2], .5) + x_axis_x_offset,
+		to_plot_x = c(-.5, x_tick_locs[2], .5) * w_med + x_axis_x_offset,
 		to_plot_y = rep(x_axis_y_offset, 3)
 	)
 
 	# x-axis tick segments (verticals)
 	x_big_ticks_seg <- tibble(
-		x    = c(-.5, x_tick_locs[2], .5) + x_axis_x_offset,
-		xend = c(-.5, x_tick_locs[2], .5) + x_axis_x_offset,
-		y    = x_axis_y_offset - .1,
+		x    = c(-.5, x_tick_locs[2], .5) * w_med + x_axis_x_offset,
+		xend = c(-.5, x_tick_locs[2], .5) * w_med + x_axis_x_offset,
+		y    = x_axis_y_offset - 0.10 * h_med,
 		yend = x_axis_y_offset
 	)
 
 	x_small_ticks_seg <- tibble(
-		x    = x_tick_locs[c(1,3)] + x_axis_x_offset,
-		xend = x_tick_locs[c(1,3)] + x_axis_x_offset,
-		y    = x_axis_y_offset - .05,
+		x    = x_tick_locs[c(1,3)] * w_med + x_axis_x_offset,
+		xend = x_tick_locs[c(1,3)] * w_med + x_axis_x_offset,
+		y    = x_axis_y_offset - 0.05 * h_med,
 		yend = x_axis_y_offset
 	)
 
 	# x-axis small labels (“0”)
 	x_axis_dat_small_ticks <- tibble(
 		label = c('0','0'),
-		to_plot_x = x_tick_locs[c(1,3)] + x_axis_x_offset,
+		to_plot_x = x_tick_locs[c(1,3)] * w_med + x_axis_x_offset,
 		to_plot_y = rep(x_axis_y_offset, 2)
 	)
 
 	# x-axis big labels (“During/After”)
 	x_axis_dat_big_labels <- tibble(
 		label = c('During','After'),
-		to_plot_x = c(-.25, .25) + x_axis_x_offset,
-		to_plot_y = rep(x_axis_y_offset - .05, 2)
+		to_plot_x = c(-.25, .25) * w_med + x_axis_x_offset,
+		to_plot_y = rep(x_axis_y_offset - 0.05 * h_med, 2)
 	)
 
-	# axis titles
+	# axis titles (drop “Time” slightly more)
 	axis_title_dat <- tibble(
 		label = c('Band','Time'),
-		x = c(y_axis_x_offset - .25, x_axis_x_offset),
-		y = c(y_axis_y_offset,      x_axis_y_offset - .4),
+		x = c(y_axis_x_offset - 0.25 * w_med, x_axis_x_offset),
+		y = c(y_axis_y_offset,               x_axis_y_offset - 0.40 * h_med),
 		angle = c(90, 0),
 		hjust = c('center','center'),
 		vjust = c('bottom','top')
@@ -335,10 +338,10 @@ plot_participant <- function(this_participant_data, all_participants_powerdb_ran
 					 linewidth = .25) +
 		# x-axis labels
 		geom_text(data = x_axis_dat_small_ticks,
-				  aes(x = to_plot_x, y = to_plot_y - .08, label = label),
+				  aes(x = to_plot_x, y = to_plot_y - 0.08 * h_med, label = label),
 				  vjust = 'top', size = 1) +
 		geom_text(data = x_axis_dat_big_labels,
-				  aes(x = to_plot_x, y = to_plot_y - .15, label = label),
+				  aes(x = to_plot_x, y = to_plot_y - 0.15 * h_med, label = label),
 				  vjust = 'top', size = 2, parse = TRUE) +
 		# axis titles
 		geom_text(data = axis_title_dat,
@@ -346,16 +349,10 @@ plot_participant <- function(this_participant_data, all_participants_powerdb_ran
 				  size = 3)
 
 	# ===== Example “key” tile — BOTH epochs; size matches a true channel panel =====
-	# choose C3 if present, else first available
 	key_chan <- if ("C3" %in% dat$chan) "C3" else unique(dat$chan)[1]
-	dat_key  <- dat %>% filter(chan == key_chan)  # <-- both epochs kept
+	dat_key  <- dat %>% filter(chan == key_chan)
 	if (nrow(dat_key)) {
-		# build a panel from the same data (so the bbox spans both epochs)
 		key_panel <- get_raster_for_channel(dat_key, all_channels_powerdb_range = palette_lims)
-
-		# typical panel width/height from the current page (robust to missing channels)
-		w_med <- median(vapply(channel_rasters, function(cr) cr$xmax - cr$xmin, numeric(1)), na.rm = TRUE)
-		h_med <- median(vapply(channel_rasters, function(cr) cr$ymax - cr$ymin, numeric(1)), na.rm = TRUE)
 
 		p <- p + annotation_raster(
 			raster = key_panel$topo_raster,
