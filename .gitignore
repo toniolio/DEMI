@@ -9,6 +9,7 @@ README.html
 # Local data: ignore everything under _Data/
 _Data/
 _Plots/
+_Tables/
 
 # Keep a placeholder file if you want the dir present
 !_Data/.gitkeep
