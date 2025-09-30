@@ -1,5 +1,5 @@
 #############################################
-### 11_maxT_inference_global.R (GP, robust)
+### 09_maxT_inference_global.R (GP, robust)
 #############################################
 suppressPackageStartupMessages({
 	library(tidyverse)
