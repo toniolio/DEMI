@@ -8,7 +8,7 @@ suppressPackageStartupMessages({
 	library(readr)
 })
 
-message("\n=== 11_maxT_inference_global.R (GP, auto cell/dev) ===")
+message("\n=== 09_maxT_inference_global.R (GP, auto cell/dev) ===")
 
 path_rds   <- "_Scripts/_rds/"
 out_plots  <- "_Plots/"
