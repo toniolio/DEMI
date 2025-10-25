@@ -56,6 +56,18 @@ _Data/eeg/edfs/**
 *_rds/
 .RData
 
+# renv housekeeping
+renv/library/
+renv/staging/
+renv/python/
+renv/sandbox/
+
+# RStudio env
+.Renviron
+
+# Editors
+.vscode/
+
 # OS / miscellany
 .DS_Store
 Thumbs.db
