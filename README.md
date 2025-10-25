@@ -1,45 +1,87 @@
-# Detecting Errors in Motor Imagery (DEMI)
+# DEMI — Detecting Errors in Motor Imagery
 
-Project overview. 
-We designed the DEMI experiment to ask whether imagined movements process accuracy like executed movements. Paper 1 (behaviour; scripts 00–03) shows that self-reported accuracy in imagery tracks the same movement characteristics that drive overt error (speed, complexity, familiarity), with vividness of imagery playing a comparatively small role, consistent with imagery as a simulation of a movement attempt, rather than simply thinking about the movement (elaborating on what it looks like, goals, etc.). Paper 2 (EEG; scripts 04+) extends this by modelling scalp-level activity with hierarchical GAMs: frontal theta error-monitoring and the post-movement beta rebound are attenuated in imagery relative to overt movement, while posterior alpha suppression appears shared.
-
-This repository hosts the analysis code for the DEMI project. It has **two parts**:
-
-- **Paper 1 — Behaviour (scripts 00–03)**: results published (see reference below) and reproduced here unchanged.
-- **Paper 2 — EEG + hierarchical GAMs (scripts 04+)**: coming next; scaffolded but not included yet.
-
-## What’s here now (Paper 1)
-- `R/00–03` — behaviour import, preprocessing, imagery cleanup (Stan), and analysis.
-- `_Scripts/` — legacy helpers/settings and small RDS artifacts (created locally).
-- `_Data/` — local only; not tracked.
-- `legacy/dissertation/` — archival dissertation-era code (read-only import).<sup>1</sup>
-
-## Results snapshot (Paper 1)
-Below are two representative figures from the published behaviour analyses.
+**Behaviour + EEG analyses for two related studies** on imagined movement accuracy (that is, do we make "errors" during motor imagery?), and how scalp‑level dynamics reflect those processes.
 
 <p align="center">
-  <img src="media/behaviour/Figure1.jpg" alt="DEMI-task" width="65%">
+  <img src="media/behaviour/Figure1.jpg" alt="Behavioural task figure" width="46%">
+  &nbsp;
+  <img src="media/eegplots/eeg_results_summary.jpg" alt="EEG results summary" width="46%">
 </p>
+<p align="center"><em>Left: Behavioural task. Right: EEG results — <strong>work in progress</strong>; plotting cleanup pending.</em></p>
 
-<p align="center">
-  <img src="media/behaviour/Fig2_90mm.jpeg" alt="DEMI-behav result 1" width="65%">
-</p>
+**At a glance:**
 
-*(Exact figure generation lives in scripts 00–03; raw/large data are not distributed.)*
+- **Behaviour:** Participants performed (overtly or imagined) a complex motor task designed to challenge motor acuity. Results support notion of motor imagery accuracy; similarly affected by drivers of overt movement error.
+- **EEG:** Approach: task‑locked theta/alpha/beta dynamics modeled with **hierarchical GAMs (mgcv)**; contrasts via **difference‑of‑smooths**; confirmatory **cluster‑based permutation** inference. Results interpretation pending (manuscript in prep).
 
-## Paper 2
+---
 
-Note: EEG preprocessing (prerequisite): Before running R scripts 04+, run the TraceLab EEG pipeline (https://github.com/LBRF/DEMI_EEG_Pipeline) first to produce preprocessed EDF+ files (and prep_info.csv), then place them under /_Data/eeg/edfs/ and /_Data/eeg/prep_info.csv.
+## What’s inside (brief)
 
-## Data availability
-Individual-level data are not posted here. If you require access for bona fide reproducibility, please contact the author; access may depend on ethics/consent constraints.
+- `/_Scripts/` — **all analysis code** (behaviour + EEG). <br/>
+  <small>Convention: scripts <code>00–03</code> = Behaviour paper; scripts <code>04+</code> = EEG paper.</small>
+- `/external/` — EEG preprocessing pipeline (git submodule, pinned to a specific commit).
+- `/legacy/` — dissertation‑era code (read‑only).
+- `/media/` — curated figures displayed here (bulk plot dumps are ignored).
+- `/_Data/` — **local‑only**; only `_Data/eeg/BESA-81.csv` (channel map) is tracked.
+- `renv.lock`, `.Rprofile` — reproducible R environment via **renv**.
 
-## References
-- Ingram, T. G. J., Hurst, A. J., Solomon, J. P., Stratas, A., & Boe, S. G. (2022).  
-  *Imagined Movement Accuracy Is Strongly Associated With Drivers of Overt Movement Error and Weakly Associated With Imagery Vividness.*  
-  **JEP: Human Perception & Performance, 48(12), 1362–1372.** https://doi.org/10.1037/xhp0001064
-- Task code: **TraceLab** — https://github.com/LBRF/TraceLab
+## Methods snapshot
 
-## Notes
-1. My PhD dissertation is complete and available online, but that's not necessarily what ended up in peer-reviewed publications (which is what you'll find here on this repo). The dissertation-era pipeline is preserved at `legacy/dissertation/` and remains the canonical artifact referenced by the thesis text.
-2. When Paper 2 is added, the EEG pipeline (04+) will produce compact tables/figures and I’ll pin minimal artifacts for reproducibility.
+- **Behavioural:** 
+  - Behavioural task: single-session touchscreen path-tracing with imagery and overt execution, repeated vs random shapes, varying complexity and stimulus durations. 
+  - Metrics: overt error = DTW-aligned mean Euclidean deviation; performance = z(speed/error); imagery expected performance obtained by fitting a hierarchical model to overt trials and projecting to imagery. 
+  - Modelling: Bayesian multilevel regressions (participant random effects; standardized predictors, weakly informative priors) tested self-reported accuracy ~ expected/actual performance with condition interactions; secondary models examined movement time ~ condition × stimulus-time × complexity.
+- **EEG:** (**WIP**); manuscript in prep. See scripts under `/_Scripts/`.
+
+## Results / Manuscripts
+
+- **Behaviour:** 
+
+> Ingram, T. G. J., Hurst, A. J., Solomon, J. P., Stratas, A., & Boe, S. G. (2022). Imagined movement accuracy is strongly associated with drivers of overt movement error and weakly associated with imagery vividness. *Journal of Experimental Psychology: Human Perception and Performance, 48*(12), 1362–1372. https://doi.org/10.1037/xhp0001064
+
+- **EEG:** (**WIP**); manuscript in prep. See scripts under `/_Scripts/`.
+
+## Reproducibility & setup
+
+<details>
+<summary><strong>Reproduce (collapsed)</strong></summary>
+
+**Clone with submodules**
+
+    git clone --recurse-submodules https://github.com/toniolio/DEMI.git
+    cd DEMI
+
+**Restore R environment**
+
+    R -q -e 'install.packages("renv", repos="https://cloud.r-project.org"); renv::restore(); renv::status()'
+
+**Data** live under `_Data/` (local only). See scripts in `/_Scripts/` for run order and expected inputs.
+
+</details>
+
+<details>
+<summary><strong>Submodule (EEG preprocessing) — details (collapsed)</strong></summary>
+
+The pipeline in `/external/` is pinned to a specific commit.
+To intentionally update it:
+
+    cd external/DEMI_EEG_Pipeline
+    git fetch origin
+    git checkout <new-commit-or-tag>
+    cd ../..
+    git add external/DEMI_EEG_Pipeline
+    git commit -m "external: bump EEG pipeline to <sha|tag>"
+
+</details>
+
+## Citation
+
+Please cite this repository and the related manuscripts when using the code, figures, or results.
+
+- Use GitHub’s **Cite this repository** button (powered by this repo’s [`CITATION.cff`](CITATION.cff)) to export BibTeX/APA/EndNote.
+- The full citation metadata (authors, title, version, release date) live in [`CITATION.cff`](CITATION.cff).
+
+## License
+
+Code in this repository is released under the <strong>MIT License</strong>. See [`LICENSE`](LICENSE).
