@@ -11,7 +11,7 @@
 
 **At a glance:**
 
-- **Behaviour:** Participants performed (overtly or imagined) a complex motor task designed to challenge motor acuity. Results support notion of motor imagery accuracy; similarly affected by drivers of overt movement error.
+- **Behaviour (Published):** Participants performed (overtly or imagined) a complex motor task designed to challenge motor acuity. Results support notion of motor imagery accuracy; similarly affected by drivers of overt movement error.
 - **EEG:** Approach: task‑locked theta/alpha/beta dynamics modeled with **hierarchical GAMs (mgcv)**; contrasts via **difference‑of‑smooths**; confirmatory **cluster‑based permutation** inference. Results interpretation pending (manuscript in prep).
 
 ---
