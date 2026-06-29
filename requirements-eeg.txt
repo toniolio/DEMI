@@ -1,0 +1,11 @@
+mne
+numpy
+pandas
+scipy
+matplotlib
+seaborn
+scikit-learn
+statsmodels
+pyarrow
+jupyter
+ipykernel
