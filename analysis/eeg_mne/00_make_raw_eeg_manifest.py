@@ -2,7 +2,7 @@
 
 This script inspects the raw EDF files stored under ``_Data/eeg/raw/`` and
 writes local manifest tables under ``_Data/eeg/manifest/``. The manifest exists
-to give Tony a transparent first-pass inventory of observable raw-file facts
+to give a transparent first-pass inventory of observable raw-file facts
 before any new MNE preprocessing or event reconstruction is attempted.
 
 The script records facts that can be measured directly from the EDF filename or
