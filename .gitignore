@@ -6,6 +6,18 @@
 .Ruserdata
 README.html
 
+# Private/local safety
+AGENTS.md
+_Private/
+.private/
+.venv/
+.DS_Store
+_Data/eeg/raw/
+_Data/eeg/manifest/
+_Data/behavior/manifest/
+_Data/task/
+_Data/figure/
+
 # Local data: ignore everything under _Data/
 _Data/
 _Plots/
@@ -69,7 +81,6 @@ renv/sandbox/
 .vscode/
 
 # OS / miscellany
-.DS_Store
 Thumbs.db
 .Rdata
 .httr-oauth
