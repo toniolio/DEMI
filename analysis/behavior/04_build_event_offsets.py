@@ -53,11 +53,15 @@ Expected local inputs:
 - task text files below ``_Data/task/`` and ``_Data/task/incomplete/``;
 - ``_Data/behavior/tracing_filters/tracing_trial_filter_summary.parquet``;
 - ``_Data/behavior/tracing_filters/false_start_trials.parquet``;
+- optional local historical ``bad_imagery_trials.rds`` artifact, used only to
+  make ``event_offsets_old_compatible.csv`` match the frozen old ``bdat2`` row
+  surface exactly; the broad audit outputs do not depend on this artifact;
 - a Python environment with ``pandas`` and parquet support available.
 
 Generated local outputs:
 
 - ``_Data/behavior/event_offsets/event_offsets.csv``;
+- ``_Data/behavior/event_offsets/event_offsets_old_compatible.csv``;
 - ``_Data/behavior/event_offsets/event_offset_audit.csv``;
 - ``_Data/behavior/event_offsets/task_file_read_audit.csv``;
 - ``_Data/behavior/event_offsets/event_offset_summary.md``.
@@ -65,6 +69,7 @@ Generated local outputs:
 Safety boundaries:
 
 - source task files and tracing-filter outputs are read-only inputs;
+- optional historical RDS artifacts are read-only parity inputs when present;
 - outputs are written only below ``_Data/behavior/event_offsets/``;
 - no raw EEG files or annotations are opened;
 - no source data are modified;
@@ -81,6 +86,8 @@ another current working directory.
 from __future__ import annotations
 
 import re
+import os
+import subprocess
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -95,6 +102,26 @@ TRACING_FILTER_DIR = Path("_Data") / "behavior" / "tracing_filters"
 EVENT_OFFSET_DIR = Path("_Data") / "behavior" / "event_offsets"
 
 TRIALS_PER_BLOCK = 20
+OLD_COMPATIBLE_COLUMNS = [
+    "id",
+    "physical",
+    "it",
+    "mt",
+    "stimulus_mt",
+    "trial_count",
+    "trace_onset",
+    "trace_end",
+    "start_shift",
+    "real_start",
+    "real_end",
+    "end_trigger",
+]
+HISTORICAL_BAD_IMAGERY_PATHS = [
+    # Historical old-R location, when a local `_Scripts/_rds/` cache exists.
+    Path("_Scripts") / "_rds" / "bad_imagery_trials.rds",
+    # Private parity-review location used in the current local reanalysis work.
+    Path("_Private") / "old_rds" / "bad_imagery_trials.rds",
+]
 
 TASK_FILENAME_RE = re.compile(
     r"^p(?P<task_file_participant_id>\d{1,3})\.(?P<task_file_date>\d{4}-\d{2}-\d{2})(?P<label>.*)\.txt$",
@@ -625,6 +652,25 @@ def boolean_series(frame: pd.DataFrame, column: str) -> pd.Series:
     return frame[column].fillna(False).astype(bool)
 
 
+def is_true(value: Any) -> bool:
+    """Return ``True`` only for explicit true-like scalar values.
+
+    Args:
+        value: Scalar value from a row.
+
+    Returns:
+        ``True`` when ``value`` is an explicit boolean true or nonzero numeric
+        value. Missing values return ``False``.
+
+    Side effects:
+        None.
+    """
+
+    if pd.isna(value):
+        return False
+    return bool(value)
+
+
 def issue_codes_for_row(row: pd.Series) -> str:
     """Build semicolon-delimited event-offset audit codes for one row.
 
@@ -640,24 +686,24 @@ def issue_codes_for_row(row: pd.Series) -> str:
 
     codes: list[str] = []
 
-    if bool(row.get("task_incomplete_marker", False)):
+    if is_true(row.get("task_incomplete_marker", False)):
         codes.append("task_incomplete_marker")
-    if bool(row.get("task_in_incomplete_folder", False)):
+    if is_true(row.get("task_in_incomplete_folder", False)):
         codes.append("task_file_outside_old_nonrecursive_task_import")
     if pd.isna(row.get("old_epoch_id")):
         codes.append("missing_task_participant")
     if row.get("figure_file_parse_status") != "ok":
         codes.append(str(row.get("figure_file_parse_status")))
-    if row.get("figure_file_parse_status") == "ok" and not bool(row.get("task_figure_key_matches_task_columns", False)):
+    if row.get("figure_file_parse_status") == "ok" and not is_true(row.get("task_figure_key_matches_task_columns", False)):
         codes.append("task_columns_differ_from_figure_file_tokens")
     if pd.notna(row.get("task_file_participant_id")) and pd.notna(row.get("trace_join_participant_id")):
         if int(row["task_file_participant_id"]) != int(row["trace_join_participant_id"]):
             codes.append("task_filename_id_differs_from_tracing_join_id")
     if row.get("task_trace_join_status") != "matched_tracing_summary":
         codes.append("missing_tracing_filter_summary")
-    if bool(row.get("no_tracing_payload", False)):
+    if is_true(row.get("no_tracing_payload", False)):
         codes.append("no_tracing_payload")
-    if bool(row.get("has_reconstructed_tracing", False)) and not bool(row.get("has_filtered_tracing", False)):
+    if is_true(row.get("has_reconstructed_tracing", False)) and not is_true(row.get("has_filtered_tracing", False)):
         codes.append("tracing_removed_by_filter_stage")
     for column, code in [
         ("no_shape_trial", "no_shape_trial"),
@@ -665,11 +711,11 @@ def issue_codes_for_row(row: pd.Series) -> str:
         ("large_gap_trial", "large_gap_trial"),
         ("hit_edge_trial", "edge_hit_trial"),
     ]:
-        if bool(row.get(column, False)):
+        if is_true(row.get(column, False)):
             codes.append(code)
     if row.get("condition") not in {"physical", "imagery"}:
         codes.append("unknown_condition")
-    if bool(row.get("physical", False)):
+    if is_true(row.get("physical", False)):
         if pd.isna(row.get("it")):
             codes.append("physical_missing_it")
         if pd.isna(row.get("trace_onset")):
@@ -678,11 +724,11 @@ def issue_codes_for_row(row: pd.Series) -> str:
             codes.append("physical_missing_trace_end")
         if pd.isna(row.get("mt_clip")):
             codes.append("physical_missing_mt_clip")
-    if bool(row.get("imagery", False)) and pd.isna(row.get("task_mt")):
+    if is_true(row.get("imagery", False)) and pd.isna(row.get("task_mt")):
         codes.append("imagery_missing_task_mt")
     if pd.notna(row.get("start_shift")) and float(row.get("start_shift")) != 0.0:
         codes.append("false_start_shift_present")
-    if not bool(row.get("event_offset_constructed", False)):
+    if not is_true(row.get("event_offset_constructed", False)):
         codes.append("event_offset_not_constructed")
 
     return ";".join(dict.fromkeys(code for code in codes if code))
@@ -817,14 +863,136 @@ def audit_columns(frame: pd.DataFrame) -> list[str]:
     return [column for column in preferred if column in frame.columns]
 
 
-def build_event_offsets(repo_root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def read_historical_bad_imagery_trials(repo_root: Path) -> tuple[set[str], str]:
+    """Read a local historical bad-imagery trial list when one is available.
+
+    Args:
+        repo_root: Repository root.
+
+    Returns:
+        ``(figure_files, note)``. ``figure_files`` is empty when no local
+        historical artifact is present. ``note`` explains which selection
+        source was used.
+
+    Side effects:
+        May run ``Rscript`` to read a local RDS artifact. The artifact is read
+        only; no RDS files are modified. The script remains runnable without
+        this artifact, but exact old `bdat2` imagery-row parity depends on the
+        historical Stan-derived list from `_Scripts/02_imagery_clean.R`.
+    """
+
+    for relative_path in HISTORICAL_BAD_IMAGERY_PATHS:
+        path = repo_root / relative_path
+        if not path.exists():
+            continue
+
+        r_path = relative_to_repo(path, repo_root).replace("\\", "/").replace("'", "\\'")
+        r_code = (
+            f"x <- readRDS('{r_path}'); "
+            "if (!('figure_file' %in% names(x))) stop('missing figure_file column'); "
+            "cat(paste(as.character(x$figure_file), collapse='\\n'))"
+        )
+        env = os.environ.copy()
+        env["RENV_CONFIG_AUTOLOADER_ENABLED"] = "FALSE"
+        try:
+            result = subprocess.run(
+                ["Rscript", "-e", r_code],
+                cwd=repo_root,
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+            )
+        except (OSError, subprocess.CalledProcessError) as error:
+            raise RuntimeError(
+                "failed to read the local historical bad-imagery trial list at "
+                f"{relative_to_repo(path, repo_root)}: {error}"
+            ) from error
+
+        figure_files = {line.strip() for line in result.stdout.splitlines() if line.strip()}
+        return (
+            figure_files,
+            "used historical bad-imagery trial list from "
+            f"`{relative_to_repo(path, repo_root)}`",
+        )
+
+    return (
+        set(),
+        "no historical bad-imagery trial list found; old-compatible output uses "
+        "the source-derived physical-row rule but cannot exactly reproduce the "
+        "old imagery cleanup row set",
+    )
+
+
+def build_old_compatible_offsets(event_offsets: pd.DataFrame, repo_root: Path) -> tuple[pd.DataFrame, str]:
+    """Build the narrow table corresponding to old R ``epoch_offsets``.
+
+    Args:
+        event_offsets: Broad event-offset/audit table.
+        repo_root: Repository root.
+
+    Returns:
+        ``(old_compatible_offsets, selection_note)``. The table has the old
+        `epoch_offsets` columns in the old-compatible order.
+
+    Side effects:
+        May read a local historical bad-imagery RDS artifact through
+        ``read_historical_bad_imagery_trials``. It does not inspect EEG or
+        modify source data.
+    """
+
+    missing_columns = [column for column in OLD_COMPATIBLE_COLUMNS if column not in event_offsets.columns]
+    if missing_columns:
+        raise RuntimeError(
+            "event-offset table is missing old-compatible column(s): "
+            + ", ".join(missing_columns)
+        )
+
+    bad_imagery_trials, selection_note = read_historical_bad_imagery_trials(repo_root)
+
+    # `_Scripts/03_behav_analysis.R` built `bdat2.rds` from old `bdat.rds`.
+    # For this event-offset output, the ported selection rule is:
+    #   1. stay with the old nonrecursive task import surface by omitting
+    #      `_Data/task/incomplete/` rows;
+    #   2. keep the old pilot/dev guard `participant < 500`;
+    #   3. for physical rows, keep rows with a constructed movement-time offset
+    #      (equivalent here to non-missing old `mt_clip`);
+    #   4. for imagery rows, apply the frozen historical bad-imagery trial list
+    #      when that local artifact is available. That list came from the old
+    #      Stan mixture cleanup; this script does not refit that model.
+    top_level_task = ~boolean_series(event_offsets, "task_in_incomplete_folder")
+    participant_lt_500 = numeric_float(event_offsets["id"]) < 500
+    physical = boolean_series(event_offsets, "physical")
+    if "imagery" in event_offsets.columns:
+        imagery = boolean_series(event_offsets, "imagery")
+    else:
+        imagery = event_offsets["condition"].eq("imagery")
+    physical_keep = physical & boolean_series(event_offsets, "event_offset_constructed")
+    imagery_keep = imagery.copy()
+    if bad_imagery_trials:
+        imagery_keep = imagery_keep & ~event_offsets["figure_file"].isin(bad_imagery_trials)
+
+    old_compatible = event_offsets.loc[
+        top_level_task & participant_lt_500 & (physical_keep | imagery_keep),
+        OLD_COMPATIBLE_COLUMNS,
+    ].copy()
+
+    return (
+        old_compatible.sort_values(["id", "trial_count"], kind="mergesort").reset_index(drop=True),
+        selection_note,
+    )
+
+
+def build_event_offsets(repo_root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
     """Read inputs and build event-offset plus audit tables.
 
     Args:
         repo_root: Repository root.
 
     Returns:
-        ``(event_offsets, event_offset_audit, task_file_audit)``.
+        ``(event_offsets, old_compatible_offsets, event_offset_audit,
+        task_file_audit, old_compatible_selection_note)``.
 
     Side effects:
         Reads task files and tracing-filter parquet outputs. It does not write
@@ -848,7 +1016,17 @@ def build_event_offsets(repo_root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd
         kind="mergesort",
         na_position="last",
     )
-    return event_offsets.reset_index(drop=True), event_offset_audit.reset_index(drop=True), task_file_audit
+    old_compatible_offsets, old_compatible_selection_note = build_old_compatible_offsets(
+        event_offsets.reset_index(drop=True),
+        repo_root,
+    )
+    return (
+        event_offsets.reset_index(drop=True),
+        old_compatible_offsets,
+        event_offset_audit.reset_index(drop=True),
+        task_file_audit,
+        old_compatible_selection_note,
+    )
 
 
 def count_issue_codes(values: pd.Series) -> Counter[str]:
@@ -911,16 +1089,21 @@ def ids_present_in_offsets(offsets: pd.DataFrame, ids: list[int]) -> list[int]:
 
 def build_summary(
     event_offsets: pd.DataFrame,
+    old_compatible_offsets: pd.DataFrame,
     event_offset_audit: pd.DataFrame,
     task_file_audit: pd.DataFrame,
+    old_compatible_selection_note: str,
     started_at: datetime,
 ) -> str:
     """Build the Markdown summary text for event-offset reconstruction.
 
     Args:
         event_offsets: Main event-offset output table.
+        old_compatible_offsets: Narrow old-compatible event-offset table.
         event_offset_audit: Row-level audit output table.
         task_file_audit: File-level task read audit table.
+        old_compatible_selection_note: Description of the old-compatible
+            row-selection source.
         started_at: Timestamp captured at run start.
 
     Returns:
@@ -932,6 +1115,7 @@ def build_summary(
 
     finished_at = datetime.now()
     task_rows = len(event_offsets)
+    old_compatible_rows = len(old_compatible_offsets)
     top_level_rows = int((~event_offsets["task_in_incomplete_folder"].fillna(False).astype(bool)).sum())
     incomplete_folder_rows = int(event_offsets["task_in_incomplete_folder"].fillna(False).astype(bool).sum())
     joined_rows = int(event_offsets["has_tracing_summary_match"].sum())
@@ -986,12 +1170,21 @@ Task file read status:
 
 ## Offset Rows
 
+- Broad audit-table rows: {task_rows:,}
+- Old-compatible event-offset rows: {old_compatible_rows:,}
 - Rows matched to tracing/filter summaries: {joined_rows:,}
 - Rows with missing tracing data: {missing_tracing_rows:,}
 - Rows whose tracing trial has reconstructed samples but no final filtered tracing rows: {filtered_away_rows:,}
 - Rows with constructed `real_start` and `real_end`: {constructed_rows:,}
 - Physical rows: {physical_rows:,}
 - Imagery rows: {imagery_rows:,}
+
+`event_offsets.csv` is the broad audit artifact. It preserves incomplete-task,
+missing-summary, no-payload, and filtered-tracing facts for review.
+`event_offsets_old_compatible.csv` is the narrow table intended as the first
+input for the next EEG annotation-comparison script.
+
+Old-compatible selection note: {old_compatible_selection_note}.
 
 By task condition:
 
@@ -1035,8 +1228,10 @@ They are not participant-level decisions.
 
 def write_outputs(
     event_offsets: pd.DataFrame,
+    old_compatible_offsets: pd.DataFrame,
     event_offset_audit: pd.DataFrame,
     task_file_audit: pd.DataFrame,
+    old_compatible_selection_note: str,
     repo_root: Path,
     started_at: datetime,
 ) -> None:
@@ -1044,8 +1239,11 @@ def write_outputs(
 
     Args:
         event_offsets: Main event-offset table.
+        old_compatible_offsets: Narrow old-compatible event-offset table.
         event_offset_audit: Row-level audit table.
         task_file_audit: File-level task read audit table.
+        old_compatible_selection_note: Description of the old-compatible
+            row-selection source.
         repo_root: Repository root.
         started_at: Timestamp captured at run start.
 
@@ -1061,19 +1259,34 @@ def write_outputs(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     event_offsets_path = output_dir / "event_offsets.csv"
+    old_compatible_offsets_path = output_dir / "event_offsets_old_compatible.csv"
     event_offset_audit_path = output_dir / "event_offset_audit.csv"
     task_file_audit_path = output_dir / "task_file_read_audit.csv"
     summary_path = output_dir / "event_offset_summary.md"
 
     event_offsets.to_csv(event_offsets_path, index=False)
+    old_compatible_offsets.to_csv(old_compatible_offsets_path, index=False)
     event_offset_audit.to_csv(event_offset_audit_path, index=False)
     task_file_audit.to_csv(task_file_audit_path, index=False)
     summary_path.write_text(
-        build_summary(event_offsets, event_offset_audit, task_file_audit, started_at),
+        build_summary(
+            event_offsets,
+            old_compatible_offsets,
+            event_offset_audit,
+            task_file_audit,
+            old_compatible_selection_note,
+            started_at,
+        ),
         encoding="utf-8",
     )
 
-    for path in [event_offsets_path, event_offset_audit_path, task_file_audit_path, summary_path]:
+    for path in [
+        event_offsets_path,
+        old_compatible_offsets_path,
+        event_offset_audit_path,
+        task_file_audit_path,
+        summary_path,
+    ]:
         print(f"Wrote {relative_to_repo(path, repo_root)}")
 
 
@@ -1095,8 +1308,22 @@ def main() -> int:
     repo_root = repo_root_from_script()
 
     try:
-        event_offsets, event_offset_audit, task_file_audit = build_event_offsets(repo_root)
-        write_outputs(event_offsets, event_offset_audit, task_file_audit, repo_root, started_at)
+        (
+            event_offsets,
+            old_compatible_offsets,
+            event_offset_audit,
+            task_file_audit,
+            old_compatible_selection_note,
+        ) = build_event_offsets(repo_root)
+        write_outputs(
+            event_offsets,
+            old_compatible_offsets,
+            event_offset_audit,
+            task_file_audit,
+            old_compatible_selection_note,
+            repo_root,
+            started_at,
+        )
     except RuntimeError as error:
         print(f"FAIL event offsets: {error}")
         return 1
