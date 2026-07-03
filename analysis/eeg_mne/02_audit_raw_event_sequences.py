@@ -1275,13 +1275,18 @@ def build_proposed_offset_join_audit(
     joined["join_audit_issue_codes"] = joined.apply(join_issue_codes, axis=1)
     joined["alignment_problem_codes"] = joined.apply(alignment_problem_codes, axis=1)
     joined["possible_alignment_problem"] = joined["alignment_problem_codes"].ne("")
+
+    # Strict clean timing is reserved for one-to-one raw/offset rows. Duplicate
+    # raw join keys are timing-informative but not clean rows, so coerce the
+    # merged duplicate flag robustly before negating it.
+    duplicate_raw_join_key = joined["raw_join_key_duplicate"].fillna(False).map(is_true)
     joined["clean_timing_row"] = (
         joined["join_status"].eq("raw_annotation_and_offset")
         & ~joined["old_trace_epoch_duration_mismatch"].fillna(False)
         & ~joined["old_stimulus_duration_mismatch"].fillna(False)
         & joined["missing_expected_event_names"].fillna("").eq("")
         & joined["extra_expected_event_names"].fillna("").eq("")
-        & ~joined["raw_join_key_duplicate"].fillna(False)
+        & ~duplicate_raw_join_key
     )
 
     preferred = [
