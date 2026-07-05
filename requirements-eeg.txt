@@ -4,6 +4,7 @@ pandas
 scipy
 matplotlib
 seaborn
+PyYAML
 scikit-learn
 statsmodels
 pyarrow
