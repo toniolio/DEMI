@@ -710,8 +710,9 @@ def selected_event_rows(
         copied["selected_normalized_code"] = integer_or_none(
             copied.get("raw_code")
         )
-        copied["selected_event_name"] = event_name_for_code(
-            copied["selected_normalized_code"]
+        copied["selected_event_name"] = (
+            event_name_for_code(copied["selected_normalized_code"])
+            or _text(copied.get("candidate_event_name"))
         )
         selected.append(copied)
     return selected

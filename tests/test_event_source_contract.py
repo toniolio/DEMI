@@ -259,6 +259,31 @@ def test_selected_rows_preserve_raw_and_candidate_provenance() -> None:
     assert all(row["normalization_applied"] is False for row in rows)
 
 
+def test_selected_annotation_marker_name_is_preserved() -> None:
+    """A nonnumeric selected annotation marker must retain its source label."""
+
+    annotations = coherent_stream(source_type="annotation")
+    annotations.append(
+        {
+            "sample": 500,
+            "raw_code": None,
+            "normalized_candidate_code": None,
+            "candidate_event_name": "file start",
+            "source_type": "annotation",
+        }
+    )
+    physical = coherent_stream(source_type="physical_trigger")
+    selection = select_event_source(
+        compare_event_streams(annotations, physical)
+    )
+    rows = selected_event_rows(annotations, physical, selection)
+
+    marker = [row for row in rows if row.get("candidate_event_name") == "file start"]
+    assert len(marker) == 1
+    assert marker[0]["selected_event_name"] == "file start"
+    assert marker[0]["selected_normalized_code"] is None
+
+
 @pytest.mark.skipif(
     not OLD_COMPATIBLE_OFFSETS_PATH.exists(),
     reason="ignored local old-compatible offset target is unavailable",
