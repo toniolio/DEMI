@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import importlib.util
 import sys
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 
@@ -33,6 +35,9 @@ from event_source_contract import (  # noqa: E402
 
 
 IDENTITY_CONTRACT_PATH = EEG_ANALYSIS_DIR / "eeg_behavior_identity_contract.csv"
+CORRECTED_EVIDENCE_SCRIPT_PATH = (
+    EEG_ANALYSIS_DIR / "06_build_corrected_event_evidence.py"
+)
 OLD_COMPATIBLE_OFFSETS_PATH = (
     REPO_ROOT
     / "_Data"
@@ -47,6 +52,23 @@ OLD_COMPATIBLE_OFFSETS_PATH = (
 OLD_COMPATIBLE_OFFSETS_SHA256 = (
     "2a8b1e2bedfdce2c5853cee44624cb4beddc126e149f03137f1d94e60ac9cded"
 )
+
+
+def load_corrected_evidence_module():
+    """Import script 06 by path because its filename starts with a number."""
+
+    spec = importlib.util.spec_from_file_location(
+        "corrected_event_evidence_test_module",
+        CORRECTED_EVIDENCE_SCRIPT_PATH,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+corrected_evidence = load_corrected_evidence_module()
 
 
 def event(
@@ -94,6 +116,77 @@ def coherent_stream(
     return rows
 
 
+def selected_inventory_event(
+    *,
+    eeg_recording_id: int = 13,
+    behavioural_participant_id: int | None = 11,
+) -> dict[str, object]:
+    """Return one selected-source row in the version-1 inventory schema."""
+
+    return {
+        "eeg_recording_id": eeg_recording_id,
+        "eeg_recording_id_padded": f"{eeg_recording_id:03d}",
+        "behavioural_participant_id": behavioural_participant_id,
+        "identity_mapping_status": (
+            "explicit_remap"
+            if eeg_recording_id == 13
+            else "explicitly_unmapped"
+        ),
+        "identity_contract_version": "v1",
+        "source_filename": f"demi_{eeg_recording_id:02d} Data.edf",
+        "file_path": f"_Data/eeg/raw/demi_{eeg_recording_id:02d} Data.edf",
+        "file_role": "single",
+        "split_part": None,
+        "session_date": "2018-06-05",
+        "sampling_frequency_hz": 1000.0,
+        "source_type": "annotation",
+        "event_row_order": 1,
+        "sample": 100,
+        "onset_seconds": 0.1,
+        "duration_seconds": 0.0,
+        "raw_value": "28",
+        "previous_raw_value": "",
+        "raw_code": 28,
+        "previous_code": None,
+        "normalized_candidate_code": 28,
+        "normalization_candidate_rule": "annotation_label_preserved",
+        "normalization_candidate_applied": False,
+        "candidate_event_name": "stim_on",
+        "task_event_candidate": True,
+        "source_extraction_parameters_json": "{}",
+        "selected_for_event_evidence": True,
+        "selected_source": "annotation",
+        "selection_status": "annotation_selected",
+        "selection_reason": "coherent annotations preferred by contract",
+        "selection_unresolved_issue": "",
+        "normalization_applied": False,
+        "selected_normalized_code": 28,
+        "selected_event_name": "stim_on",
+    }
+
+
+def source_file_inventory(
+    *,
+    eeg_recording_id: int = 13,
+    behavioural_participant_id: int | None = 11,
+) -> dict[str, object]:
+    """Return one compact file row used by corrected-evidence tests."""
+
+    return {
+        "source_filename": f"demi_{eeg_recording_id:02d} Data.edf",
+        "recording_duration_seconds": 10.0,
+        "source_discrepancy_class": "coherent_exact_agreement",
+        "selected_source": "annotation",
+        "selection_status": "annotation_selected",
+        "selection_reason": "coherent annotations preferred by contract",
+        "selection_unresolved_issue": "",
+        "annotation_event_count": 10,
+        "physical_event_count": 10,
+        "eeg_recording_id": eeg_recording_id,
+        "behavioural_participant_id": behavioural_participant_id,
+    }
+
+
 def test_public_identity_contract_encodes_reviewed_11_to_13_mapping() -> None:
     """Behaviour 11 must be reached through EEG 13, never EEG 11."""
 
@@ -125,6 +218,45 @@ def test_missing_identity_never_falls_back_to_same_number() -> None:
         require_identity_mapping(mappings, 11)
     with pytest.raises(RuntimeError, match="lacks discovered EEG recording"):
         validate_identity_coverage(mappings, [11, 13])
+
+
+def test_corrected_alignment_uses_behaviour_mapping_not_eeg_number() -> None:
+    """Selected EEG 13 events must enter the join as behavioural ID 11."""
+
+    selected = pd.DataFrame([selected_inventory_event()])
+    files = pd.DataFrame([source_file_inventory()])
+
+    aligned = corrected_evidence.build_selected_alignment_events(
+        selected, files
+    )
+
+    assert aligned.loc[0, "eeg_recording_id"] == 13
+    assert aligned.loc[0, "participant_id"] == 11
+    assert aligned.loc[0, "behavioural_participant_id"] == 11
+    assert aligned.loc[0, "identity_mapping_status"] == "explicit_remap"
+
+
+def test_corrected_alignment_rejects_selected_event_without_mapping() -> None:
+    """An explicitly unmapped EEG event cannot enter behavioural alignment."""
+
+    selected = pd.DataFrame(
+        [
+            selected_inventory_event(
+                eeg_recording_id=11,
+                behavioural_participant_id=None,
+            )
+        ]
+    )
+    files = pd.DataFrame(
+        [
+            source_file_inventory(
+                eeg_recording_id=11,
+                behavioural_participant_id=None,
+            )
+        ]
+    )
+    with pytest.raises(RuntimeError, match="without a behavioural mapping"):
+        corrected_evidence.build_selected_alignment_events(selected, files)
 
 
 def test_coherent_annotation_and_physical_streams_select_annotations() -> None:
@@ -282,6 +414,63 @@ def test_selected_annotation_marker_name_is_preserved() -> None:
     assert len(marker) == 1
     assert marker[0]["selected_event_name"] == "file start"
     assert marker[0]["selected_normalized_code"] is None
+
+
+def test_unaffected_join_regression_excludes_only_changed_identity_surface() -> None:
+    """Changed IDs may differ while the unaffected regression remains exact."""
+
+    common = {
+        "audit_trial_count": 1,
+        "source_filename": "demi_01 Data.edf",
+        "join_status": "raw_annotation_and_offset",
+        "old_trace_epoch_duration_mismatch": False,
+        "old_stimulus_duration_mismatch": False,
+        "missing_expected_event_names": "",
+        "extra_expected_event_names": "",
+        "alignment_problem_codes": "",
+        "clean_timing_row": True,
+    }
+    old = pd.DataFrame(
+        [
+            {"audit_participant_id": 1, **common},
+            {
+                "audit_participant_id": 11,
+                **{**common, "source_filename": "demi_11 Data.edf"},
+            },
+        ]
+    )
+    corrected = pd.DataFrame(
+        [
+            {"audit_participant_id": 1, **common},
+            {
+                "audit_participant_id": 11,
+                **{**common, "source_filename": "demi_13 Data.edf"},
+            },
+        ]
+    )
+
+    assert corrected_evidence.normalized_regression_surface(old).equals(
+        corrected_evidence.normalized_regression_surface(corrected)
+    )
+
+
+def test_join_metrics_uses_canonical_clean_timing_column() -> None:
+    """Corrected aggregate metrics must count clean_timing_row values."""
+
+    join = pd.DataFrame(
+        {
+            "join_status": [
+                "raw_annotation_and_offset",
+                "raw_annotation_without_offset",
+            ],
+            "clean_timing_row": [True, False],
+            "alignment_problem_codes": ["", "raw_annotation_without_offset"],
+        }
+    )
+    metrics = corrected_evidence.join_metrics(join)
+
+    assert metrics["strict_clean_timing"] == 1
+    assert metrics["direct_alignment_problem_rows"] == 1
 
 
 @pytest.mark.skipif(
