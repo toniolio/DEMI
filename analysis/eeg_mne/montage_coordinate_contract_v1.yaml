@@ -1,0 +1,54 @@
+contract_version: montage_coordinate_contract_v1
+
+coordinate_file: _Data/eeg/BESA-81.csv
+coordinate_file_sha256: 033c7b7a44f97bd432effb37c5e1cf40786b72644e6b7b1e1af96a5b335f4291
+canonical_coordinate_rows_sha256: 2bde9e8448f013d8ac64fe921901abe08b9af2b1ed1302d32673349876fe7e85
+expected_row_count: 112
+unit_norm_tolerance: 0.00001
+
+source:
+  name: Robert Oostenveld besa_81.txt
+  url: https://robertoostenveld.nl/download/electrode/besa_81.txt
+  source_page: https://robertoostenveld.nl/electrode/
+  reviewed_match_status: exact_ordered_label_and_six_decimal_coordinate_match
+  reviewed_match_date: 2026-07-11
+  source_description: Cartesian coordinates according to BESA on a unit sphere
+  acquisition_digitization_source: false
+
+geometry:
+  coordinate_frame: besa_unit_sphere_template
+  units: unitless
+  origin: center_of_template_unit_sphere
+  orientation:
+    x_positive: right
+    y_positive: anterior_toward_nasion
+    z_positive: superior_toward_cz
+  fiducials:
+    nasion: NAS
+    left_preauricular: LPA
+    right_preauricular: RPA
+  fiducial_aliases:
+    nasion: Nz
+    left_preauricular: T9
+    right_preauricular: T10
+  head_radius_m: null
+  individual_head_shape_available: false
+  individual_electrode_digitization_available: false
+
+historical_use:
+  r_pipeline: spherical plotting and spatial model coordinates
+  external_python_pipeline: MNE standard_1005, not this coordinate table
+
+active_pipeline:
+  active_montage: null
+  decision_status: pending_tony_approval
+  permitted_without_active_montage_decision:
+    - channel_name_coverage
+    - historical_spherical_visualization
+    - documented_comparison_to_standard_montages
+  not_permitted_without_active_montage_decision:
+    - interpolation
+    - current_source_density
+    - quantitative_spatial_inference
+    - acquisition_geometry_claims
+  recommended_option: standard_1005_primary_with_historical_besa_template_comparison
