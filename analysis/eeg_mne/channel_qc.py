@@ -29,6 +29,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import BinaryIO
 
+import numpy as np
+from scipy.signal import welch
+
 
 UNKNOWN_EDF_UNITS = {"", "N/A", "NA", "NONE", "UNKNOWN", "?"}
 VOLTAGE_UNIT_SCALE_TO_VOLTS = {
@@ -380,3 +383,336 @@ def mne_scaling_for_unit_status(status: UnitStatus) -> float:
     if status.value_status == "mne_scaled_calibrated_voltage":
         return VOLTAGE_UNIT_SCALE_TO_VOLTS[status.edf_original_unit_normalized]
     return 1.0
+
+
+def deterministic_chunk_bounds(
+    n_times: int,
+    chunk_samples: int,
+) -> list[tuple[int, int]]:
+    """Partition a signal into deterministic, contiguous full-coverage chunks.
+
+    Args:
+        n_times: Total sample count.
+        chunk_samples: Maximum samples per chunk.
+
+    Returns:
+        Ordered ``(start, stop)`` bounds that cover each sample exactly once.
+
+    Side effects:
+        None.
+    """
+
+    if n_times < 0:
+        raise ValueError("n_times must be non-negative")
+    if chunk_samples <= 0:
+        raise ValueError("chunk_samples must be positive")
+    return [
+        (start, min(n_times, start + chunk_samples))
+        for start in range(0, n_times, chunk_samples)
+    ]
+
+
+def deterministic_sample_stride(n_times: int, maximum_samples: int) -> int:
+    """Return a stable stride that samples across the complete duration.
+
+    Args:
+        n_times: Total sample count.
+        maximum_samples: Desired upper bound for deterministic quantile
+            samples.
+
+    Returns:
+        Integer stride of at least one.
+
+    Side effects:
+        None.
+    """
+
+    if n_times < 0:
+        raise ValueError("n_times must be non-negative")
+    if maximum_samples <= 0:
+        raise ValueError("maximum_samples must be positive")
+    return max(1, int(np.ceil(n_times / maximum_samples)))
+
+
+def longest_true_run(values: np.ndarray) -> int:
+    """Return the longest consecutive run of true values in one dimension."""
+
+    array = np.asarray(values, dtype=bool)
+    if array.ndim != 1:
+        raise ValueError("longest_true_run expects a one-dimensional array")
+    if array.size == 0 or not np.any(array):
+        return 0
+    padded = np.concatenate(([False], array, [False]))
+    changes = np.flatnonzero(padded[1:] != padded[:-1])
+    return int(np.max(changes[1::2] - changes[::2]))
+
+
+def _finite_float(value: float) -> float | None:
+    """Convert non-finite numerical output to ``None`` for table safety."""
+
+    return float(value) if np.isfinite(value) else None
+
+
+def summarize_signal_metrics(
+    signal: np.ndarray,
+    sfreq: float,
+    *,
+    digital_step_in_memory_units: float | None = None,
+    rail_minimum_in_memory_units: float | None = None,
+    rail_maximum_in_memory_units: float | None = None,
+) -> dict[str, float | int | None]:
+    """Compute deterministic descriptive metrics for one synthetic/full signal.
+
+    This helper is intentionally descriptive. It does not decide whether a
+    channel is bad. The full driver uses the same definitions while scanning
+    EDFs in bounded-memory chunks.
+
+    Args:
+        signal: One-dimensional numeric samples.
+        sfreq: Sampling frequency in Hz.
+        digital_step_in_memory_units: Optional value represented by one EDF
+            digital-code increment after MNE scaling.
+        rail_minimum_in_memory_units: Optional calibrated lower EDF rail.
+        rail_maximum_in_memory_units: Optional calibrated upper EDF rail.
+
+    Returns:
+        Dictionary containing finite/dropout, location/scale, range, repeated
+        sample, near-flat run, rail, and extreme-step metrics.
+
+    Side effects:
+        None.
+    """
+
+    values = np.asarray(signal, dtype=float)
+    if values.ndim != 1:
+        raise ValueError("summarize_signal_metrics expects a one-dimensional signal")
+    if sfreq <= 0:
+        raise ValueError("sfreq must be positive")
+
+    n_samples = int(values.size)
+    finite_mask = np.isfinite(values)
+    finite = values[finite_mask]
+    nonfinite_count = int(n_samples - finite.size)
+    if finite.size == 0:
+        return {
+            "n_samples": n_samples,
+            "nonfinite_count": nonfinite_count,
+            "finite_proportion": 0.0 if n_samples else None,
+            "median": None,
+            "robust_mad": None,
+            "robust_scale_mad": None,
+            "robust_q01": None,
+            "robust_q99": None,
+            "robust_peak_to_peak_q01_q99": None,
+            "minimum": None,
+            "maximum": None,
+            "peak_to_peak": None,
+            "variance": None,
+            "unchanged_difference_count": 0,
+            "unchanged_difference_proportion": None,
+            "near_flat_tolerance": None,
+            "longest_near_flat_run_samples": 0,
+            "longest_near_flat_run_seconds": 0.0,
+            "rail_sample_count": 0,
+            "rail_sample_proportion": None,
+            "maximum_absolute_step": None,
+            "median_absolute_step": None,
+            "p999_absolute_step": None,
+            "extreme_step_ratio": None,
+        }
+
+    median = float(np.median(finite))
+    mad = float(np.median(np.abs(finite - median)))
+    q01, q99 = np.quantile(finite, [0.01, 0.99])
+    scale_reference = max(abs(median), mad, float(np.max(np.abs(finite))), 1.0)
+    quantization_tolerance = (
+        abs(float(digital_step_in_memory_units)) * 0.5
+        if digital_step_in_memory_units is not None
+        and np.isfinite(digital_step_in_memory_units)
+        else 0.0
+    )
+    near_flat_tolerance = max(
+        quantization_tolerance,
+        np.finfo(float).eps * scale_reference * 8.0,
+    )
+
+    if n_samples >= 2:
+        adjacent_finite = finite_mask[:-1] & finite_mask[1:]
+        differences = np.diff(values)
+        valid_differences = differences[adjacent_finite]
+        absolute_steps = np.abs(valid_differences)
+        unchanged_count = int(np.count_nonzero(valid_differences == 0.0))
+        unchanged_proportion = (
+            float(unchanged_count / valid_differences.size)
+            if valid_differences.size
+            else None
+        )
+        near_flat = np.zeros(n_samples - 1, dtype=bool)
+        near_flat[adjacent_finite] = absolute_steps <= near_flat_tolerance
+        longest_flat_samples = longest_true_run(near_flat) + 1 if np.any(near_flat) else 1
+        maximum_step = float(np.max(absolute_steps)) if absolute_steps.size else None
+        median_step = float(np.median(absolute_steps)) if absolute_steps.size else None
+        p999_step = float(np.quantile(absolute_steps, 0.999)) if absolute_steps.size else None
+    else:
+        unchanged_count = 0
+        unchanged_proportion = None
+        longest_flat_samples = n_samples
+        maximum_step = None
+        median_step = None
+        p999_step = None
+
+    rail_count = 0
+    rail_metadata = (
+        rail_minimum_in_memory_units is not None
+        and rail_maximum_in_memory_units is not None
+        and np.isfinite(rail_minimum_in_memory_units)
+        and np.isfinite(rail_maximum_in_memory_units)
+    )
+    if rail_metadata:
+        rail_count = int(
+            np.count_nonzero(
+                (np.abs(finite - float(rail_minimum_in_memory_units)) <= near_flat_tolerance)
+                | (np.abs(finite - float(rail_maximum_in_memory_units)) <= near_flat_tolerance)
+            )
+        )
+
+    step_denominator = max(
+        median_step or 0.0,
+        abs(float(digital_step_in_memory_units or 0.0)),
+        np.finfo(float).eps * scale_reference,
+    )
+    extreme_step_ratio = (
+        float(maximum_step / step_denominator) if maximum_step is not None else None
+    )
+
+    return {
+        "n_samples": n_samples,
+        "nonfinite_count": nonfinite_count,
+        "finite_proportion": float(finite.size / n_samples) if n_samples else None,
+        "median": median,
+        "robust_mad": mad,
+        "robust_scale_mad": float(1.4826 * mad),
+        "robust_q01": float(q01),
+        "robust_q99": float(q99),
+        "robust_peak_to_peak_q01_q99": float(q99 - q01),
+        "minimum": float(np.min(finite)),
+        "maximum": float(np.max(finite)),
+        "peak_to_peak": float(np.ptp(finite)),
+        "variance": float(np.var(finite)),
+        "unchanged_difference_count": unchanged_count,
+        "unchanged_difference_proportion": unchanged_proportion,
+        "near_flat_tolerance": float(near_flat_tolerance),
+        "longest_near_flat_run_samples": int(longest_flat_samples),
+        "longest_near_flat_run_seconds": float(longest_flat_samples / sfreq),
+        "rail_sample_count": rail_count,
+        "rail_sample_proportion": float(rail_count / finite.size) if rail_metadata else None,
+        "maximum_absolute_step": maximum_step,
+        "median_absolute_step": median_step,
+        "p999_absolute_step": p999_step,
+        "extreme_step_ratio": extreme_step_ratio,
+    }
+
+
+def _mean_psd_in_band(
+    frequencies: np.ndarray,
+    psd: np.ndarray,
+    low_hz: float,
+    high_hz: float,
+) -> float | None:
+    """Return mean PSD in an inclusive band or ``None`` when unavailable."""
+
+    mask = (frequencies >= low_hz) & (frequencies <= high_hz)
+    if not np.any(mask):
+        return None
+    finite = psd[mask][np.isfinite(psd[mask])]
+    return float(np.mean(finite)) if finite.size else None
+
+
+def summarize_spectral_metrics(
+    signal: np.ndarray,
+    sfreq: float,
+    *,
+    nperseg_seconds: float = 4.0,
+) -> dict[str, float | int | None]:
+    """Compute scale-aware PSD summaries and scale-free frequency ratios.
+
+    Args:
+        signal: One-dimensional continuous physical/auxiliary signal. Stim
+            channels must be skipped by the caller.
+        sfreq: Sampling frequency in Hz.
+        nperseg_seconds: Welch segment duration.
+
+    Returns:
+        Welch configuration, broadband/band summaries, a 60-Hz line-to-
+        sideband ratio, and a low/high-frequency ratio. Absolute PSD values
+        inherit the channel's unit status; ratios remain useful for unknown-
+        unit within-channel/file QC.
+
+    Side effects:
+        None.
+    """
+
+    values = np.asarray(signal, dtype=float)
+    if values.ndim != 1:
+        raise ValueError("summarize_spectral_metrics expects a one-dimensional signal")
+    if sfreq <= 0 or nperseg_seconds <= 0:
+        raise ValueError("sfreq and nperseg_seconds must be positive")
+    if values.size < 2 or not np.all(np.isfinite(values)):
+        return {
+            "welch_nperseg": None,
+            "psd_frequency_resolution_hz": None,
+            "median_psd_1_100_hz": None,
+            "mean_psd_1_4_hz": None,
+            "mean_psd_30_45_hz": None,
+            "mean_psd_59_61_hz": None,
+            "mean_psd_60hz_sidebands": None,
+            "line_noise_ratio_60hz": None,
+            "low_high_frequency_ratio": None,
+        }
+
+    nperseg = max(2, min(values.size, int(round(nperseg_seconds * sfreq))))
+    frequencies, psd = welch(
+        values,
+        fs=sfreq,
+        nperseg=nperseg,
+        noverlap=nperseg // 2,
+        detrend="constant",
+        scaling="density",
+    )
+    broadband_mask = (frequencies >= 1.0) & (frequencies <= min(100.0, sfreq / 2.0))
+    broadband = psd[broadband_mask]
+    low = _mean_psd_in_band(frequencies, psd, 1.0, 4.0)
+    high = _mean_psd_in_band(frequencies, psd, 30.0, 45.0)
+    line = _mean_psd_in_band(frequencies, psd, 59.0, 61.0)
+    side_mask = (
+        ((frequencies >= 55.0) & (frequencies <= 58.0))
+        | ((frequencies >= 62.0) & (frequencies <= 65.0))
+    )
+    side_values = psd[side_mask]
+    side = float(np.mean(side_values)) if side_values.size else None
+    line_ratio = (
+        float(line / side)
+        if line is not None and side is not None and side > 0
+        else None
+    )
+    low_high_ratio = (
+        float(low / high)
+        if low is not None and high is not None and high > 0
+        else None
+    )
+    frequency_resolution = frequencies[1] - frequencies[0] if frequencies.size > 1 else np.nan
+    return {
+        "welch_nperseg": nperseg,
+        "psd_frequency_resolution_hz": _finite_float(float(frequency_resolution)),
+        "median_psd_1_100_hz": (
+            float(np.median(broadband[np.isfinite(broadband)]))
+            if np.any(np.isfinite(broadband))
+            else None
+        ),
+        "mean_psd_1_4_hz": low,
+        "mean_psd_30_45_hz": high,
+        "mean_psd_59_61_hz": line,
+        "mean_psd_60hz_sidebands": side,
+        "line_noise_ratio_60hz": line_ratio,
+        "low_high_frequency_ratio": low_high_ratio,
+    }

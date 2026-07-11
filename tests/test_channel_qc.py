@@ -10,6 +10,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 
@@ -20,8 +21,13 @@ if str(EEG_ANALYSIS_DIR) not in sys.path:
 
 from channel_qc import (  # noqa: E402
     classify_unit_status,
+    deterministic_chunk_bounds,
+    deterministic_sample_stride,
+    longest_true_run,
     mne_scaling_for_unit_status,
     read_edf_signal_headers,
+    summarize_signal_metrics,
+    summarize_spectral_metrics,
 )
 
 
@@ -125,3 +131,103 @@ def test_inconsistent_edf_header_length_fails(tmp_path: Path) -> None:
     path.write_bytes(payload)
     with pytest.raises(ValueError, match="header byte count is inconsistent"):
         read_edf_signal_headers(path)
+
+
+def test_deterministic_chunks_cover_every_sample_once() -> None:
+    """Chunk bounds are ordered, gap-free, non-overlapping, and complete."""
+
+    bounds = deterministic_chunk_bounds(23, 7)
+    assert bounds == [(0, 7), (7, 14), (14, 21), (21, 23)]
+    covered = [sample for start, stop in bounds for sample in range(start, stop)]
+    assert covered == list(range(23))
+    assert deterministic_chunk_bounds(0, 7) == []
+    assert deterministic_sample_stride(1_000_001, 200_000) == 6
+
+
+def test_longest_true_run_handles_edges_and_empty_values() -> None:
+    """Flat-run helper counts runs at the start, middle, and end."""
+
+    assert longest_true_run(np.array([], dtype=bool)) == 0
+    assert longest_true_run(np.array([False, False])) == 0
+    assert longest_true_run(np.array([True, True, False, True])) == 2
+    assert longest_true_run(np.array([False, True, True, True])) == 3
+
+
+def test_flat_signal_metrics_surface_zero_scale_and_full_flat_run() -> None:
+    """A fully flat signal remains descriptive rather than a bad-channel label."""
+
+    metrics = summarize_signal_metrics(np.ones(1_000), 1_000.0, digital_step_in_memory_units=1.0)
+    assert metrics["robust_scale_mad"] == 0.0
+    assert metrics["variance"] == 0.0
+    assert metrics["unchanged_difference_proportion"] == 1.0
+    assert metrics["longest_near_flat_run_samples"] == 1_000
+    assert metrics["longest_near_flat_run_seconds"] == pytest.approx(1.0)
+
+
+def test_noisy_and_normal_signals_have_nonzero_robust_scale() -> None:
+    """Deterministic noise and a normal waveform do not look flat."""
+
+    rng = np.random.default_rng(97)
+    noisy = rng.normal(size=10_000)
+    normal = np.sin(2 * np.pi * 10 * np.arange(10_000) / 1_000)
+    noisy_metrics = summarize_signal_metrics(noisy, 1_000.0)
+    normal_metrics = summarize_signal_metrics(normal, 1_000.0)
+    assert noisy_metrics["robust_scale_mad"] > 0
+    assert normal_metrics["robust_scale_mad"] > 0
+    assert noisy_metrics["unchanged_difference_proportion"] == 0.0
+    assert normal_metrics["nonfinite_count"] == 0
+
+
+def test_stepped_signal_has_larger_extreme_step_than_normal_signal() -> None:
+    """An injected step is visible in absolute and normalized change metrics."""
+
+    time = np.arange(20_000) / 1_000
+    normal = np.sin(2 * np.pi * 5 * time)
+    stepped = normal.copy()
+    stepped[10_000:] += 100.0
+    normal_metrics = summarize_signal_metrics(normal, 1_000.0)
+    stepped_metrics = summarize_signal_metrics(stepped, 1_000.0)
+    assert stepped_metrics["maximum_absolute_step"] > 50
+    assert stepped_metrics["maximum_absolute_step"] > normal_metrics["maximum_absolute_step"]
+    assert stepped_metrics["extreme_step_ratio"] > normal_metrics["extreme_step_ratio"]
+
+
+def test_clipped_signal_counts_metadata_supported_rail_samples() -> None:
+    """Rail counts use explicit range metadata and do not infer calibration."""
+
+    signal = np.linspace(-1.0, 1.0, 1_000)
+    signal[:50] = -1.0
+    signal[-75:] = 1.0
+    metrics = summarize_signal_metrics(
+        signal,
+        1_000.0,
+        digital_step_in_memory_units=2.0 / 65_535,
+        rail_minimum_in_memory_units=-1.0,
+        rail_maximum_in_memory_units=1.0,
+    )
+    assert metrics["rail_sample_count"] >= 125
+    assert metrics["rail_sample_proportion"] >= 0.125
+
+
+def test_nonfinite_samples_are_counted_as_dropouts() -> None:
+    """NaN and infinite values are reported without contaminating finite metrics."""
+
+    signal = np.array([0.0, 1.0, np.nan, 2.0, np.inf, 3.0])
+    metrics = summarize_signal_metrics(signal, 1_000.0)
+    assert metrics["nonfinite_count"] == 2
+    assert metrics["finite_proportion"] == pytest.approx(4 / 6)
+    assert metrics["minimum"] == 0.0
+    assert metrics["maximum"] == 3.0
+
+
+def test_spectral_metrics_detect_a_60_hz_component() -> None:
+    """The scale-free line ratio distinguishes 60-Hz-rich synthetic data."""
+
+    sfreq = 1_000.0
+    time = np.arange(30_000) / sfreq
+    base = np.sin(2 * np.pi * 10 * time)
+    with_line = base + 4 * np.sin(2 * np.pi * 60 * time)
+    base_metrics = summarize_spectral_metrics(base, sfreq)
+    line_metrics = summarize_spectral_metrics(with_line, sfreq)
+    assert line_metrics["line_noise_ratio_60hz"] > base_metrics["line_noise_ratio_60hz"]
+    assert line_metrics["mean_psd_59_61_hz"] > base_metrics["mean_psd_59_61_hz"]
