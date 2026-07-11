@@ -12,15 +12,16 @@
 **At a glance:**
 
 - **Behaviour (Published):** Participants performed (overtly or imagined) a complex motor task designed to challenge motor acuity. Results support notion of motor imagery accuracy; similarly affected by drivers of overt movement error.
-- **EEG:** Approach: task‑locked theta/alpha/beta dynamics modeled with **hierarchical GAMs (mgcv)**; contrasts via **difference‑of‑smooths**; confirmatory **cluster‑based permutation** inference. Results interpretation pending (manuscript in prep).
+- **EEG (active reanalysis):** Raw recordings are being reprocessed with a Python/MNE-first workflow. The earlier hierarchical-GAM analysis is retained as historical provenance, not the active confirmatory pipeline.
 
 ---
 
 ## What’s inside (brief)
 
-- `/_Scripts/` — **all analysis code** (behaviour + EEG). <br/>
-  <small>Convention: scripts <code>00–03</code> = Behaviour paper; scripts <code>04+</code> = EEG paper.</small>
-- `/external/` — EEG preprocessing pipeline (git submodule, pinned to a specific commit).
+- `/analysis/eeg_mne/` — active raw/MNE EEG inventory, event-evidence, and preprocessing-foundation code.
+- `/analysis/behavior/` — behavioural/tracing linkage reconstruction used by the EEG reanalysis; it does not rework the published behavioural analysis.
+- `/_Scripts/` — published behavioural analysis and historical EEG/GAM code.
+- `/external/` — historical EEG preprocessing pipeline (git submodule, pinned to a specific commit).
 - `/legacy/` — dissertation‑era code (read‑only).
 - `/media/` — curated figures displayed here (bulk plot dumps are ignored).
 - `/_Data/` — **local‑only**; only `_Data/eeg/BESA-81.csv` (channel map) is tracked.
@@ -32,7 +33,7 @@
   - Behavioural task: single-session touchscreen path-tracing with imagery and overt execution, repeated vs random shapes, varying complexity and stimulus durations. 
   - Metrics: overt error = DTW-aligned mean Euclidean deviation; performance = z(speed/error); imagery expected performance obtained by fitting a hierarchical model to overt trials and projecting to imagery. 
   - Modelling: Bayesian multilevel regressions (participant random effects; standardized predictors, weakly informative priors) tested self-reported accuracy ~ expected/actual performance with condition interactions; secondary models examined movement time ~ condition × stimulus-time × complexity.
-- **EEG:** (**WIP**); manuscript in prep. See scripts under `/_Scripts/`.
+- **EEG:** (**WIP**); the active reanalysis starts under `analysis/eeg_mne/`. See `docs/eeg_reanalysis_plan.md` for scope. Historical EEG/GAM scripts remain under `/_Scripts/`.
 
 ## Results / Manuscripts
 
@@ -56,7 +57,7 @@
 
     R -q -e 'install.packages("renv", repos="https://cloud.r-project.org"); renv::restore(); renv::status()'
 
-**Data** live under `_Data/` (local only). See scripts in `/_Scripts/` for run order and expected inputs.
+**Data** live under `_Data/` (local only). The active EEG preparation path and run order are documented in `analysis/eeg_mne/README.md`.
 
 </details>
 
