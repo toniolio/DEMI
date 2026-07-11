@@ -111,7 +111,7 @@ FULL_SCAN_CHUNK_SECONDS = 120.0
 MAXIMUM_ROBUST_SAMPLES_PER_CHANNEL = 200_000
 WELCH_NPERSEG_SECONDS = 4.0
 WELCH_OVERLAP_PROPORTION = 0.5
-CANDIDATE_EXTREME_PERCENTILE = 0.995
+CANDIDATE_EXTREME_PERCENTILE = 0.999
 
 EXPECTED_EEG_CHANNELS = (
     "FP1", "FP2", "F7", "F3", "FZ", "F4", "F8", "FT7", "FC3", "FCZ",
@@ -713,6 +713,7 @@ def add_descriptive_ranks(metrics: pd.DataFrame) -> pd.DataFrame:
     ranked = metrics.copy()
     scale_free_metrics = (
         "line_noise_ratio_60hz",
+        "unchanged_difference_proportion",
         "longest_near_flat_run_seconds",
         "rail_sample_proportion",
         "extreme_step_ratio",
@@ -758,13 +759,12 @@ def candidate_reasons_for_row(row: pd.Series) -> list[str]:
         reasons.append("zero_robust_scale")
     if float(row["longest_near_flat_run_seconds"]) >= 5.0:
         reasons.append("near_flat_run_at_least_5_seconds")
-    if float(row["unchanged_difference_proportion"]) >= 0.05:
-        reasons.append("unchanged_sample_proportion_at_least_5_percent")
     if float(row["rail_sample_proportion"]) >= 0.001:
         reasons.append("edf_rail_samples_at_least_0.1_percent")
 
     for metric in (
         "line_noise_ratio_60hz",
+        "unchanged_difference_proportion",
         "longest_near_flat_run_seconds",
         "rail_sample_proportion",
         "extreme_step_ratio",
