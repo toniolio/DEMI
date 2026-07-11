@@ -268,6 +268,23 @@ def test_configured_mapping_normalizes_expected_channel_names() -> None:
     assert mapping["TRIGGER"] == "stim"
 
 
+def test_aggregated_raw_qc_unit_labels_do_not_invent_auxiliary_si_units() -> None:
+    """Legacy type-level summaries must use the same unit-aware boundary."""
+
+    assert raw_qc.aggregated_unit_label("eeg", ["uV", "µV"]) == (
+        "V from MNE scaling of calibrated EDF UV"
+    )
+    assert raw_qc.aggregated_unit_label("eog", ["n/a", ""]) == (
+        "unknown acquisition units; not calibrated SI"
+    )
+    assert raw_qc.aggregated_unit_label("emg", ["n/a", "n/a"]) == (
+        "unknown acquisition units; not calibrated SI"
+    )
+    assert raw_qc.aggregated_unit_label("stim", ["n/a"]) == (
+        "digital trigger states; continuous amplitude not interpreted"
+    )
+
+
 def test_channel_rows_surface_unknown_names() -> None:
     """Unknown channel labels should produce explicit unmapped rows."""
 

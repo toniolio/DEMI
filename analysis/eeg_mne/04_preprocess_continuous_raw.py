@@ -95,6 +95,7 @@ import argparse
 import json
 import os
 import re
+import sys
 import tempfile
 from collections import Counter
 from datetime import datetime
@@ -116,6 +117,15 @@ import matplotlib.pyplot as plt
 import mne
 import pandas as pd
 from scipy.signal import welch
+
+
+# Keep the small unit contract importable both when this numbered script is
+# executed directly and when tests load it by file path.
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from channel_qc import classify_unit_status  # noqa: E402
 
 
 RAW_EEG_DIR = Path("_Data") / "eeg" / "raw"
@@ -2167,6 +2177,37 @@ def channel_type_indices(raw: mne.io.BaseRaw) -> dict[str, list[int]]:
     return groups
 
 
+def aggregated_unit_label(channel_type: str, original_units: list[object]) -> str:
+    """Return an honest unit label for an aggregated channel-type row.
+
+    Args:
+        channel_type: Post-override MNE channel type.
+        original_units: Original EDF dimension values for channels in the
+            aggregate.
+
+    Returns:
+        Concise unit/semantics text. Mixed classifications are surfaced rather
+        than collapsed to a blanket SI claim.
+
+    Side effects:
+        None.
+    """
+
+    statuses = [classify_unit_status(channel_type, value) for value in original_units]
+    status_names = sorted({status.value_status for status in statuses})
+    if status_names == ["mne_scaled_calibrated_voltage"]:
+        original = sorted({status.edf_original_unit_normalized for status in statuses})
+        return f"V from MNE scaling of calibrated EDF {','.join(original)}"
+    if status_names == ["arbitrary_unknown_acquisition_units"]:
+        return "unknown acquisition units; not calibrated SI"
+    if status_names == ["digital_stim_values"]:
+        return "digital trigger states; continuous amplitude not interpreted"
+    if status_names == ["calibrated_physical_units"]:
+        units = sorted({status.in_memory_value_unit for status in statuses})
+        return f"declared EDF physical units: {','.join(units)}"
+    return f"mixed unit statuses: {','.join(status_names)}"
+
+
 def base_raw_qc_identity(file_row: dict[str, Any]) -> dict[str, Any]:
     """Return common identity fields for sampled raw-QC outputs.
 
@@ -2296,8 +2337,10 @@ def build_amplitude_rows(
 
     for channel_type, indices in sorted(groups.items()):
         group_data = sampled_data[indices, :]
+        original_units = [getattr(raw, "_orig_units", {}).get(raw.ch_names[index], "") for index in indices]
+        unit_label = aggregated_unit_label(channel_type, original_units)
         finite = group_data[np.isfinite(group_data)]
-        if finite.size == 0:
+        if channel_type == "stim" or finite.size == 0:
             stats = {name: pd.NA for name in ("min", "max", "ptp", "mean", "median", "std", "rms", "mean_abs")}
         else:
             stats = {
@@ -2324,7 +2367,7 @@ def build_amplitude_rows(
                 "channel_group": channel_group_for_type(channel_type),
                 "n_channels": len(indices),
                 "n_samples_per_channel": int(group_data.shape[1]),
-                "mne_data_units": "SI units from mne.io.Raw.get_data",
+                "mne_data_units": unit_label,
                 "amplitude_min": stats["min"],
                 "amplitude_max": stats["max"],
                 "amplitude_peak_to_peak": stats["ptp"],
