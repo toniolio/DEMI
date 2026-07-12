@@ -24,7 +24,7 @@ AutoReject is not used as a continuous global detector. `autoreject.Ransac` requ
 
 ## Line-noise/filter comparison
 
-The compact comparison evaluates no explicit 60-Hz removal versus MNE `spectrum_fit` removal at 60 Hz, followed in both cases by the same proposed 0.5--45 Hz zero-phase FIR. It reports the filter response, edge exclusion, residual 60-Hz PSD, theta/alpha/beta PSD, and final waveform differences. The cutoffs remain proposals until the private policy is accepted and production preprocessing is separately implemented.
+The compact comparison evaluates no explicit 60-Hz removal versus MNE `spectrum_fit` removal at 60 Hz, followed in both cases by the same proposed 0.5--45 Hz zero-phase FIR. It reports the filter response, edge exclusion, residual 60-Hz PSD, theta/alpha/beta PSD, and final waveform differences. The private preprocessing parameter policy has now been accepted. Production preprocessing remains a separate, unimplemented stage; this audit and its tracked contract document the evidence surface rather than authorizing a signal derivative.
 
 Run the evidence scripts in order:
 

@@ -39,6 +39,6 @@ The comparison is audit-only. A fitted scale is not a recovered DEMI head radius
 - Channel-name validation and historical unit-sphere visualization are supported.
 - The historical table is not approved as-is for interpolation, CSD, acquisition-geometry claims, or quantitative spatial inference.
 - The active preprocessing montage is MNE `standard_1005`.
-- The historical BESA unit-sphere surface is retained only for historical GAM/visualization provenance until its references are audited during later documentation cleanup.
+- The historical BESA unit-sphere surface remains at its original tracked path because historical R plotting/preparation code and current provenance tests refer to it there. It is retained only for historical GAM/visualization provenance and contract auditing.
 
 The machine-readable provenance and safety guard are in `analysis/eeg_mne/montage_coordinate_contract_v1.yaml` and `analysis/eeg_mne/montage_contract.py`.

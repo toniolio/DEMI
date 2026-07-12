@@ -16,4 +16,20 @@ The revised EEG work is expected to include:
 
 Older EEG preprocessing and analysis code is retained for provenance and comparison while the new workflow is developed. Once the new workflow is sufficiently complete, historical EEG analysis code may be archived or more clearly separated from the active analysis path.
 
-This document is intentionally high-level. Detailed working notes, local data inventories, and temporary planning materials are maintained outside the public repository.
+The active code and reproducible preparation order are documented in
+[`analysis/eeg_mne/README.md`](../analysis/eeg_mne/README.md). The supporting
+scripts in [`analysis/behavior/`](../analysis/behavior/README.md) reconstruct
+the frozen task/TraceLab linkage required for EEG event alignment; they do not
+constitute a new behavioural reanalysis. The earlier R/GAM workflow under
+[`_Scripts/`](../_Scripts/README.md) and the pinned external preprocessing
+submodule are provenance sources rather than active processing entry points.
+
+The current tracked workflow stops at read-only inventory, linkage, event
+evidence, raw-channel/montage QC, and preprocessing-parameter audits. It has
+not yet written production-preprocessed EEG or constructed epochs.
+
+This document is intentionally high-level. Detailed working notes, local data
+inventories, accepted event and preprocessing policy records, and temporary
+planning materials remain private. Tracked identity, montage, and parameter
+contracts plus public tests document the reproducible implementation
+boundaries without exposing those private scientific decision records.
