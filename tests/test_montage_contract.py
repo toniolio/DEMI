@@ -55,6 +55,18 @@ def test_tracked_coordinate_table_and_contract_validate() -> None:
     assert canonical_coordinate_rows_sha256(coordinates) == (
         contract["canonical_coordinate_rows_sha256"]
     )
+    assert contract["active_pipeline"]["active_montage"] == "standard_1005"
+    assert contract["active_pipeline"]["decision_status"] == "approved"
+    assert contract["active_pipeline"]["csd_status"] == "deferred"
+
+
+def test_active_montage_decision_cannot_silently_revert() -> None:
+    """The approved standard_1005 decision is part of the tracked contract."""
+
+    contract = valid_contract()
+    contract["active_pipeline"]["active_montage"] = None
+    with pytest.raises(ValueError, match="standard_1005"):
+        validate_montage_contract(contract)
 
 
 @pytest.mark.parametrize(

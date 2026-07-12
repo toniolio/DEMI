@@ -40,15 +40,18 @@ historical_use:
   external_python_pipeline: MNE standard_1005, not this coordinate table
 
 active_pipeline:
-  active_montage: null
-  decision_status: pending_tony_approval
-  permitted_without_active_montage_decision:
+  active_montage: standard_1005
+  decision_status: approved
+  decision_date: 2026-07-12
+  historical_besa_role: historical_gam_and_visualization_provenance_only
+  permitted_with_standard_1005:
     - channel_name_coverage
-    - historical_spherical_visualization
-    - documented_comparison_to_standard_montages
-  not_permitted_without_active_montage_decision:
+    - interpolation
+    - quantitative_spatial_inference
+    - current_topographic_visualization
+  historical_besa_not_permitted_for:
     - interpolation
     - current_source_density
-    - quantitative_spatial_inference
+    - primary_quantitative_spatial_inference
     - acquisition_geometry_claims
-  recommended_option: standard_1005_primary_with_historical_besa_template_comparison
+  csd_status: deferred

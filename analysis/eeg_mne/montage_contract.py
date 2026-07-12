@@ -153,10 +153,14 @@ def validate_montage_contract(contract: Mapping[str, Any]) -> None:
         raise ValueError("historical template must not claim individual head shape")
     if bool(geometry["individual_electrode_digitization_available"]):
         raise ValueError("historical template must not claim individual digitization")
-    if active.get("active_montage") is not None:
-        raise ValueError("active montage must remain unset until Tony approves a strategy")
-    if active.get("decision_status") != "pending_tony_approval":
+    if active.get("active_montage") != "standard_1005":
+        raise ValueError("approved active montage must be standard_1005")
+    if active.get("decision_status") != "approved":
         raise ValueError("active montage decision status is inconsistent")
+    if active.get("historical_besa_role") != "historical_gam_and_visualization_provenance_only":
+        raise ValueError("historical BESA role is inconsistent with the approved decision")
+    if active.get("csd_status") != "deferred":
+        raise ValueError("CSD status is inconsistent with the approved decision")
     if int(contract["expected_row_count"]) <= 0:
         raise ValueError("expected_row_count must be positive")
     if float(contract["unit_norm_tolerance"]) <= 0:

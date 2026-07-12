@@ -3,8 +3,8 @@
 This script validates the tracked BESA unit-sphere table against
 ``montage_coordinate_contract_v1.yaml`` and performs a documented comparison
 of the 32 DEMI scalp labels with MNE ``standard_1005``. It exists to answer
-coordinate provenance/frame/unit/fiducial questions before any active MNE
-montage is chosen.
+coordinate provenance/frame/unit/fiducial questions and records the later
+approved active MNE montage decision.
 
 Inputs:
 
@@ -33,7 +33,7 @@ Safety boundaries:
 * no montage is applied to EEG data;
 * no interpolation, topographic signal calculation, CSD, filtering,
   referencing, ICA, bad-channel assignment, or epoch construction occurs;
-* the active montage remains unset pending Tony's decision.
+* the active montage decision is reported but no montage is applied to signal.
 
 Run from the repository root:
 
@@ -280,9 +280,9 @@ def write_markdown(path: Path, summary: dict[str, Any]) -> None:
         "## Use boundary",
         "",
         "- Historical/template visualization and channel-name validation: supported.",
-        "- Current quantitative topography: requires an explicit active montage choice; the historical table may remain a documented comparison.",
+        "- Current quantitative topography/interpolation: use the approved MNE `standard_1005` template.",
         "- Interpolation and CSD: the unitless historical table is not approved as-is.",
-        "- Active montage remains unset. The contract recommends `standard_1005` as primary with the historical BESA template retained for documented comparison, pending Tony's approval.",
+        "- Active montage: `standard_1005`, approved 2026-07-12. The historical BESA template remains historical GAM/visualization provenance only; CSD is deferred.",
         "",
         "No EEG data were opened or modified by this audit.",
         "",
@@ -330,13 +330,14 @@ def main() -> None:
         "individual_head_shape_available": False,
         "physical_head_radius_available": False,
         "standard_1005_comparison": comparison_summary,
-        "active_montage": None,
-        "active_montage_decision_status": "pending_tony_approval",
-        "recommended_option": contract["active_pipeline"]["recommended_option"],
+        "active_montage": contract["active_pipeline"]["active_montage"],
+        "active_montage_decision_status": contract["active_pipeline"]["decision_status"],
+        "active_montage_decision_date": str(contract["active_pipeline"]["decision_date"]),
+        "historical_besa_role": contract["active_pipeline"]["historical_besa_role"],
         "safe_use": {
             "historical_spherical_visualization": True,
             "channel_name_coverage": True,
-            "current_quantitative_topography_without_decision": False,
+            "current_quantitative_topography_with_standard_1005": True,
             "interpolation_as_is": False,
             "csd_as_is": False,
         },
@@ -370,7 +371,8 @@ def main() -> None:
             "montage_applied_to_signal": False,
             "interpolation": False,
             "csd": False,
-            "active_montage_selected": False,
+            "active_montage_selected": True,
+            "active_montage_applied_to_signal": False,
         },
     }
     (output_dir / RUN_MANIFEST_FILENAME).write_text(
