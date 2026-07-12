@@ -7,7 +7,7 @@
   &nbsp;
   <img src="media/eegplots/eeg_results_summary.jpg" alt="EEG results summary" width="46%">
 </p>
-<p align="center"><em>Left: Behavioural task. Right: EEG results — <strong>work in progress</strong>; plotting cleanup pending.</em></p>
+<p align="center"><em>Left: behavioural task. Right: an earlier exploratory EEG result retained for provenance; the active EEG reanalysis has not yet produced results.</em></p>
 
 **At a glance:**
 
@@ -18,13 +18,13 @@
 
 ## What’s inside (brief)
 
-- `/analysis/eeg_mne/` — active raw/MNE EEG inventory, event-evidence, and preprocessing-foundation code.
-- `/analysis/behavior/` — behavioural/tracing linkage reconstruction used by the EEG reanalysis; it does not rework the published behavioural analysis.
-- `/_Scripts/` — published behavioural analysis and historical EEG/GAM code.
-- `/external/` — historical EEG preprocessing pipeline (git submodule, pinned to a specific commit).
-- `/legacy/` — dissertation‑era code (read‑only).
+- [`analysis/eeg_mne/`](analysis/eeg_mne/README.md) — active raw/MNE EEG inventory, event-evidence, and preprocessing-foundation code.
+- [`analysis/behavior/`](analysis/behavior/README.md) — frozen-behaviour and TraceLab linkage reconstruction required by the EEG reanalysis; it is not a new behavioural analysis.
+- [`_Scripts/`](_Scripts/README.md) — published behavioural workflow plus the earlier EEG/GAM workflow, retained for reproducibility and provenance.
+- [`external/DEMI_EEG_Pipeline/`](external/DEMI_EEG_Pipeline/) — pinned historical EEG preprocessing submodule; reference evidence, not the active pipeline.
+- [`legacy/dissertation/`](legacy/dissertation/README.md) — dissertation-era archive (read-only reference).
 - `/media/` — curated figures displayed here (bulk plot dumps are ignored).
-- `/_Data/` — **local‑only**; only `_Data/eeg/BESA-81.csv` (channel map) is tracked.
+- `/_Data/` — local raw data and generated evidence. These are ignored except for `_Data/eeg/BESA-81.csv`, the tracked historical Oostenveld/BESA unit-sphere coordinate table used by the earlier EEG workflow and provenance audits.
 - `renv.lock`, `.Rprofile` — reproducible R environment via **renv**.
 
 ## Methods snapshot
@@ -41,7 +41,7 @@
 
 > Ingram, T. G. J., Hurst, A. J., Solomon, J. P., Stratas, A., & Boe, S. G. (2022). Imagined movement accuracy is strongly associated with drivers of overt movement error and weakly associated with imagery vividness. *Journal of Experimental Psychology: Human Perception and Performance, 48*(12), 1362–1372. https://doi.org/10.1037/xhp0001064
 
-- **EEG:** (**WIP**); manuscript in prep. See scripts under `/_Scripts/`.
+- **EEG:** (**WIP**); manuscript in preparation. The active preparation path and its present stopping boundary are documented in [`analysis/eeg_mne/README.md`](analysis/eeg_mne/README.md). No production-preprocessed EEG, epochs, or active reanalysis results are currently claimed.
 
 ## Reproducibility & setup
 
@@ -57,14 +57,14 @@
 
     R -q -e 'install.packages("renv", repos="https://cloud.r-project.org"); renv::restore(); renv::status()'
 
-**Data** live under `_Data/` (local only). The active EEG preparation path and run order are documented in `analysis/eeg_mne/README.md`.
+**Data** live under `_Data/` and remain local. The active EEG preparation path, environment setup, run order, output locations, and validation commands are documented in [`analysis/eeg_mne/README.md`](analysis/eeg_mne/README.md).
 
 </details>
 
 <details>
 <summary><strong>Submodule (EEG preprocessing) — details (collapsed)</strong></summary>
 
-The pipeline in `/external/` is pinned to a specific commit.
+The historical pipeline in `/external/` is pinned to a specific commit. It is retained so earlier preprocessing decisions can be audited; it is not an instruction to use that pipeline for the active reanalysis.
 To intentionally update it:
 
     cd external/DEMI_EEG_Pipeline
