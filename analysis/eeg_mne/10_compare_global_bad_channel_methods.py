@@ -537,6 +537,15 @@ def write_outputs(
     repeat_one = primary[primary["repeat"] == 1]
     counts = repeat_one.groupby("method")["bad_count"].agg(["count", "sum", "median"])
     genuine_files = sorted(exceptions["source_filename"].unique()) if not exceptions.empty else []
+    if counts.empty:
+        count_text = "No successful method runs."
+    else:
+        count_lines = ["| method | files | total flagged | median flagged |", "|---|---:|---:|---:|"]
+        for method, row in counts.iterrows():
+            count_lines.append(
+                f"| {method} | {int(row['count'])} | {int(row['sum'])} | {float(row['median']):.3f} |"
+            )
+        count_text = "\n".join(count_lines)
     summary = f"""# Automated global bad-channel comparison
 
 Generated: {datetime.now(timezone.utc).isoformat()}
@@ -547,7 +556,7 @@ Files evaluated: {run_table['source_filename'].nunique()}. Current EEG descripti
 
 Primary repeat-one automated counts by method:
 
-{counts.to_markdown() if not counts.empty else 'No successful method runs.'}
+{count_text}
 
 Repeated-run checks: {len(determinism)}; deterministic: {int(determinism['deterministic'].sum()) if not determinism.empty else 0}.
 
@@ -579,6 +588,45 @@ AutoReject RANSAC was not run because its public interface requires Epochs; this
     paths["manifest"].write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
+def expected_run_keys(filename: str, contract: dict[str, Any], repeat_files: set[str]) -> set[tuple[str, str, int]]:
+    """Return the exact method/variant/repeat keys required for one recording."""
+
+    lof = contract["global_bad_channel_methods"]["lof"]
+    keys = {
+        ("mne_lof", "primary", repeat)
+        for repeat in range(1, int(lof["repeats"]) + 1)
+    }
+    keys.update(("mne_lof", row["label"], 1) for row in lof["sensitivity"])
+    noisy_repeats = int(
+        contract["global_bad_channel_methods"]["noisy_channels"]["repeats"]
+    )
+    keys.update(
+        ("pyprep_noisy_channels", "full_criteria", repeat)
+        for repeat in range(1, noisy_repeats + 1)
+    )
+    full_repeats = 2 if filename in repeat_files else int(
+        contract["global_bad_channel_methods"]["full_prep"]["repeats_default"]
+    )
+    keys.update(
+        ("pyprep_full_prep", "integrated", repeat)
+        for repeat in range(1, full_repeats + 1)
+    )
+    return keys
+
+
+def load_checkpoint(output_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Load prior local CSV checkpoints when a reporting/process interruption occurred."""
+
+    run_path = output_dir / "global_bad_method_runs.csv"
+    detail_path = output_dir / "global_bad_channel_details.csv"
+    if not run_path.is_file() or not detail_path.is_file():
+        return [], []
+    return (
+        pd.read_csv(run_path).replace({np.nan: None}).to_dict("records"),
+        pd.read_csv(detail_path).replace({np.nan: None}).to_dict("records"),
+    )
+
+
 def main() -> None:
     """Run all three automated methods over the private evidence surface."""
 
@@ -599,12 +647,22 @@ def main() -> None:
         if not recordings:
             raise ValueError("--only-file did not match the private selection.")
 
-    runs: list[dict[str, Any]] = []
-    details: list[dict[str, Any]] = []
+    runs, details = load_checkpoint(output_dir)
+    if runs:
+        print(f"Loaded checkpoint with {len(runs)} completed method runs.", flush=True)
     prepared = contract["prepared_continuous_input"]
     for index, recording in enumerate(recordings, start=1):
         filename = recording["source_filename"]
         groups = list(recording["selection_groups"])
+        completed = {
+            (str(row["method"]), str(row["variant"]), int(row["repeat"]))
+            for row in runs
+            if row["source_filename"] == filename
+        }
+        required = expected_run_keys(filename, contract, repeat_files)
+        if required.issubset(completed):
+            print(f"[{index}/{len(recordings)}] Reusing checkpoint for {filename}", flush=True)
+            continue
         print(f"[{index}/{len(recordings)}] Preparing {filename}", flush=True)
         raw = prepare_continuous_eeg(
             REPO_ROOT / config["raw_root"] / filename,
@@ -629,6 +687,9 @@ def main() -> None:
         )
         write_outputs(output_dir, contract, {**config, "recordings": recordings}, runs, details)
         print(f"[{index}/{len(recordings)}] Complete {filename}", flush=True)
+    # Also refresh summaries when every requested file was satisfied by a
+    # checkpoint and the loop therefore performed no new method call.
+    write_outputs(output_dir, contract, {**config, "recordings": recordings}, runs, details)
     print(f"Global bad-channel comparison complete: {output_dir}")
 
 
