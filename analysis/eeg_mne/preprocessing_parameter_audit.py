@@ -100,6 +100,27 @@ def load_audit_contract(path: Path) -> dict[str, Any]:
             raise ValueError(f"Prepared detector input must set {key}=false.")
     if float(prepared.get("resample_hz", 0.0)) <= 120.0:
         raise ValueError("Audit resampling must retain the 60-Hz line frequency.")
+
+    reference = contract.get("approved_reference_policy", {})
+    expected_mastoids = ["M1", "M2"]
+    if reference.get("decision_status") != "accepted":
+        raise ValueError("The M1/M2 reference policy must be explicitly accepted.")
+    for key in (
+        "excluded_source_channels",
+        "reference_target_channels",
+        "retain_as_recorded_provenance_channels",
+        "primary_feature_excluded_channels",
+    ):
+        if reference.get(key) != expected_mastoids:
+            raise ValueError(f"approved_reference_policy.{key} must be [M1, M2].")
+    if reference.get("primary_detector_source_pool") != "scalp_30":
+        raise ValueError("The approved detector source pool must be scalp_30.")
+    if reference.get("average_reference_source_pool") != "scalp_30":
+        raise ValueError("The approved reference source pool must be scalp_30.")
+    if reference.get("later_mastoid_sensitivity_permitted") is not True:
+        raise ValueError("The approved policy must preserve mastoid sensitivity analyses.")
+    if reference.get("deletion_permitted") is not False:
+        raise ValueError("The approved policy must prohibit deleting M1/M2.")
     return contract
 
 

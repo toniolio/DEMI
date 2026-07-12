@@ -59,6 +59,28 @@ global_bad_channel_methods:
     repeated_run_files_are_private_config: true
     historical_interpolation_warning_proportion: 0.25
 
+reference_provenance_sensitivity:
+  label: exclude_m1_m2_from_detector_pool
+  excluded_channels: [M1, M2]
+  methods: [mne_lof, pyprep_noisy_channels]
+  full_prep_enabled: false
+  reason: >-
+    This sensitivity isolates the systematic mastoid-position detector effect
+    without inventing a second integrated reference/interpolation pipeline.
+
+approved_reference_policy:
+  decision_status: accepted
+  decision_date: 2026-07-12
+  primary_detector_source_pool: scalp_30
+  average_reference_source_pool: scalp_30
+  excluded_source_channels: [M1, M2]
+  reference_target_channels: [M1, M2]
+  retain_as_recorded_provenance_channels: [M1, M2]
+  primary_feature_excluded_channels: [M1, M2]
+  later_mastoid_sensitivity_permitted: true
+  deletion_permitted: false
+  acquisition_reference_role: unavailable_from_recovered_primary_sources
+
 line_noise_filter_comparison:
   resample_hz: 250.0
   analysis_high_pass_hz: 0.5

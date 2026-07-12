@@ -43,8 +43,8 @@ not be treated as the corrected event-evidence surface.
   `_Data/eeg/mne_preprocessing/channel_qc_v1/` and never assigns bad channels.
 - Script 08 validates the tracked BESA unit-sphere provenance contract and
   compares the 32 scalp labels with MNE `standard_1005`.
-- Scripts 09-11 perform the read-only historical/reference, automated global
-  bad-channel, and line-noise/filter parameter audits. They write only local
+- Scripts 09-12 perform the read-only historical/reference, automated global
+  bad-channel, line-noise/filter, and M1/M2 detector-pool sensitivity audits. They write only local
   tabular/Markdown evidence and discard all in-memory signal changes.
 
 Run the two preprocessing-foundation audits with:
@@ -55,6 +55,7 @@ PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/08_audit_montage_provenan
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/09_audit_historical_prep_and_reference.py
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/10_compare_global_bad_channel_methods.py
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/11_compare_line_noise_filters.py
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/12_audit_m1_m2_detector_sensitivity.py
 ```
 
 The public unit/montage and parameter-audit boundaries are documented in

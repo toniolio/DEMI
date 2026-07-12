@@ -4,6 +4,8 @@ The final parameter evidence pass is separate from production preprocessing. It 
 
 The machine-readable contract is `analysis/eeg_mne/preprocessing_parameter_audit_contract_v1.yaml`. Participant/file selection and participant-level interpretation remain private.
 
+The accepted source-pool policy uses the 30 scalp channels for global detection and average-reference estimation. M1/M2 remain recorded provenance channels and reference targets, are excluded from the primary theta/alpha/beta feature surface, and remain available for a later mastoid sensitivity analysis. Their acquisition-reference role is not recoverable from the available primary sources.
+
 ## Common detector input
 
 MNE LOF, PyPREP `NoisyChannels`, and full PREP receive independent copies of the same full-session input:
@@ -30,6 +32,7 @@ Run the evidence scripts in order:
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/09_audit_historical_prep_and_reference.py
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/10_compare_global_bad_channel_methods.py
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/11_compare_line_noise_filters.py
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/12_audit_m1_m2_detector_sensitivity.py
 ```
 
 Generated evidence belongs under `_Data/eeg/mne_preprocessing/preprocessing_parameter_audit_v1/` and is not committed.

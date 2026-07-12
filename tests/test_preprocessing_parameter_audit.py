@@ -41,6 +41,13 @@ def test_tracked_contract_is_audit_only_and_preserves_60_hz() -> None:
     assert contract["prepared_continuous_input"]["resample_hz"] > 120
     assert contract["prepared_continuous_input"]["montage"] == "standard_1005"
     assert contract["autoreject"]["ransac_validation_in_this_audit"] is False
+    reference = contract["approved_reference_policy"]
+    assert reference["primary_detector_source_pool"] == "scalp_30"
+    assert reference["average_reference_source_pool"] == "scalp_30"
+    assert reference["excluded_source_channels"] == ["M1", "M2"]
+    assert reference["reference_target_channels"] == ["M1", "M2"]
+    assert reference["primary_feature_excluded_channels"] == ["M1", "M2"]
+    assert reference["deletion_permitted"] is False
 
 
 @pytest.mark.parametrize(
@@ -54,6 +61,15 @@ def test_tracked_contract_is_audit_only_and_preserves_60_hz() -> None:
         ("prepared_continuous_input", "apply_notch", True),
         ("prepared_continuous_input", "apply_analysis_filter", True),
         ("prepared_continuous_input", "resample_hz", 100.0),
+        ("approved_reference_policy", "decision_status", "pending"),
+        ("approved_reference_policy", "primary_detector_source_pool", "eeg_32"),
+        ("approved_reference_policy", "average_reference_source_pool", "eeg_32"),
+        ("approved_reference_policy", "excluded_source_channels", []),
+        ("approved_reference_policy", "reference_target_channels", []),
+        ("approved_reference_policy", "retain_as_recorded_provenance_channels", []),
+        ("approved_reference_policy", "primary_feature_excluded_channels", []),
+        ("approved_reference_policy", "later_mastoid_sensitivity_permitted", False),
+        ("approved_reference_policy", "deletion_permitted", True),
     ],
 )
 def test_contract_fails_closed_on_signal_or_input_scope_expansion(
