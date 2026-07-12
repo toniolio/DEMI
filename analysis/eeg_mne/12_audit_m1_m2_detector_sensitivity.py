@@ -40,6 +40,7 @@ import pyprep
 import yaml
 
 from preprocessing_parameter_audit import (
+    CRITERION_KEYS,
     channel_list_json,
     load_audit_contract,
     prepare_continuous_eeg,
@@ -100,6 +101,18 @@ def main() -> None:
         (row.source_filename, row.method): set(json.loads(row.bad_all_json)) - set(excluded)
         for row in primary.itertuples(index=False)
     }
+    detail_path = output_dir / "global_bad_channel_details.csv"
+    details = pd.read_csv(detail_path)
+    published_keys = [key for key in CRITERION_KEYS if key != "bad_by_psd"]
+    primary_noisy_details = details[
+        (details["method"] == "pyprep_noisy_channels")
+        & (details["variant"] == "full_criteria")
+        & (details["repeat"] == 1)
+    ]
+    baseline_published: dict[str, set[str]] = {}
+    for filename, group in primary_noisy_details.groupby("source_filename"):
+        flagged = group[published_keys].fillna(False).astype(bool).any(axis=1)
+        baseline_published[str(filename)] = set(group.loc[flagged, "channel"]) - set(excluded)
 
     prepared = contract["prepared_continuous_input"]
     method_root = contract["global_bad_channel_methods"]
@@ -129,6 +142,14 @@ def main() -> None:
         calls["pyprep_noisy_channels"] = set(noisy["bad_all"])
         for method, current in calls.items():
             original = baseline[(filename, method)]
+            if method == "pyprep_noisy_channels":
+                current_published = set().union(
+                    *(set(noisy["criteria"][key]) for key in published_keys)
+                )
+                original_published = baseline_published[filename]
+            else:
+                current_published = current
+                original_published = original
             rows.append(
                 {
                     "source_filename": filename,
@@ -141,6 +162,16 @@ def main() -> None:
                     "lost_calls_json": channel_list_json(original - current),
                     "gained_calls_json": channel_list_json(current - original),
                     "exact_scalp_call_agreement": original == current,
+                    "policy_criterion": (
+                        "published_prep_union_psd_report_only"
+                        if method == "pyprep_noisy_channels"
+                        else "lof_primary"
+                    ),
+                    "primary_32ch_policy_calls_json": channel_list_json(original_published),
+                    "sensitivity_30ch_policy_calls_json": channel_list_json(current_published),
+                    "primary_32ch_policy_count": len(original_published),
+                    "sensitivity_30ch_policy_count": len(current_published),
+                    "policy_exact_scalp_call_agreement": original_published == current_published,
                 }
             )
 
@@ -159,11 +190,16 @@ def main() -> None:
         exact_files=("exact_scalp_call_agreement", "sum"),
         primary_scalp_calls=("primary_32ch_scalp_count", "sum"),
         sensitivity_calls=("sensitivity_30ch_count", "sum"),
+        primary_policy_calls=("primary_32ch_policy_count", "sum"),
+        sensitivity_policy_calls=("sensitivity_30ch_policy_count", "sum"),
     )
-    lines = ["| method | files | exact scalp sets | 32-ch scalp calls | 30-ch calls |", "|---|---:|---:|---:|---:|"]
+    lines = [
+        "| method | files | exact full sets | 32-ch full calls | 30-ch full calls | 32-ch policy calls | 30-ch policy calls |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
     for method, row in aggregates.iterrows():
         lines.append(
-            f"| {method} | {int(row.files)} | {int(row.exact_files)} | {int(row.primary_scalp_calls)} | {int(row.sensitivity_calls)} |"
+            f"| {method} | {int(row.files)} | {int(row.exact_files)} | {int(row.primary_scalp_calls)} | {int(row.sensitivity_calls)} | {int(row.primary_policy_calls)} | {int(row.sensitivity_policy_calls)} |"
         )
     paths["summary"].write_text(
         "# M1/M2 detector-pool sensitivity\n\n"
