@@ -1,0 +1,89 @@
+contract_version: 1
+
+safety:
+  audit_only: true
+  write_signal_derivatives: false
+  construct_epochs: false
+  mutate_source_edf: false
+  allowed_output_suffixes: [.csv, .json, .md]
+  output_directory_name: preprocessing_parameter_audit_v1
+
+prepared_continuous_input:
+  montage: standard_1005
+  eeg_only: true
+  resample_hz: 250.0
+  apply_reference: false
+  apply_notch: false
+  apply_analysis_filter: false
+  channel_types:
+    HEO: eog
+    VEO: eog
+    EMG-L: emg
+    EMG-A: emg
+    Trigger: stim
+
+global_bad_channel_methods:
+  random_seed: 20260712
+  lof:
+    primary:
+      n_neighbors: 20
+      metric: euclidean
+      threshold: 1.5
+    sensitivity:
+      - {label: neighbors_10_threshold_1_5, n_neighbors: 10, metric: euclidean, threshold: 1.5}
+      - {label: neighbors_20_threshold_1_3, n_neighbors: 20, metric: euclidean, threshold: 1.3}
+      - {label: neighbors_20_threshold_2_0, n_neighbors: 20, metric: euclidean, threshold: 2.0}
+    repeats: 2
+  noisy_channels:
+    do_detrend: true
+    ransac: true
+    correlation: true
+    matlab_strict: false
+    psd_enabled: true
+    channel_wise: false
+    max_chunk_size: null
+    reject_by_annotation: null
+    repeats: 2
+  full_prep:
+    line_freqs_hz: [60.0]
+    ref_chs: eeg
+    reref_chs: eeg
+    max_iterations: 4
+    interpolate_bads: true
+    ransac: true
+    correlation: true
+    matlab_strict: false
+    channel_wise: false
+    max_chunk_size: null
+    repeats_default: 1
+    repeated_run_files_are_private_config: true
+    historical_interpolation_warning_proportion: 0.25
+
+line_noise_filter_comparison:
+  resample_hz: 250.0
+  analysis_high_pass_hz: 0.5
+  analysis_low_pass_hz: 45.0
+  analysis_filter_method: fir
+  analysis_fir_design: firwin
+  analysis_phase: zero
+  line_frequency_hz: 60.0
+  notch_method: spectrum_fit
+  notch_filter_length: 10s
+  notch_mt_bandwidth_hz: 2.0
+  notch_p_value: 0.01
+  measurement_edge_exclusion_seconds: 10.0
+  welch_n_fft: 4096
+  welch_n_overlap: 2048
+  bands_hz:
+    theta: [4.0, 8.0]
+    alpha: [9.0, 12.0]
+    beta: [13.0, 30.0]
+    line_60: [59.0, 61.0]
+
+autoreject:
+  full_autoreject_continuous_global_method: false
+  ransac_validation_in_this_audit: false
+  reason: >-
+    autoreject.Ransac operates on Epochs. Constructing fixed-length or task
+    epochs only to duplicate PREP RANSAC is outside this continuous audit.
+  future_role: epoch_level_transient_channel_and_epoch_repair

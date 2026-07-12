@@ -6,6 +6,8 @@ matplotlib
 seaborn
 PyYAML
 pytest
+pyprep
+autoreject
 scikit-learn
 statsmodels
 pyarrow
