@@ -42,22 +42,29 @@ not be treated as the corrected event-evidence surface.
   writes local versioned evidence under
   `_Data/eeg/mne_preprocessing/channel_qc_v1/` and never assigns bad channels.
 - Script 08 validates the tracked BESA unit-sphere provenance contract and
-  compares the 32 scalp labels with MNE `standard_1005`. It does not select or
-  apply an active montage.
+  compares the 32 scalp labels with MNE `standard_1005`.
+- Scripts 09-11 perform the read-only historical/reference, automated global
+  bad-channel, and line-noise/filter parameter audits. They write only local
+  tabular/Markdown evidence and discard all in-memory signal changes.
 
 Run the two preprocessing-foundation audits with:
 
 ```sh
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/07_run_unit_aware_channel_qc.py
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/08_audit_montage_provenance.py
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/09_audit_historical_prep_and_reference.py
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/10_compare_global_bad_channel_methods.py
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/11_compare_line_noise_filters.py
 ```
 
-The public unit and montage boundaries are documented in
-`docs/eeg_raw_qc_and_montage_contract.md`.
+The public unit/montage and parameter-audit boundaries are documented in
+`docs/eeg_raw_qc_and_montage_contract.md` and
+`docs/eeg_preprocessing_parameter_audit.md`.
 
 None of these scripts filters EEG, applies a reference, interpolates channels,
 runs ICA, computes CSD, writes cleaned EEG, makes inclusion decisions, or
 constructs final epochs.
 
 Focused public tests are in `tests/test_event_source_contract.py`,
-`tests/test_channel_qc.py`, and `tests/test_montage_contract.py`.
+`tests/test_channel_qc.py`, `tests/test_montage_contract.py`, and
+`tests/test_preprocessing_parameter_audit.py`.
