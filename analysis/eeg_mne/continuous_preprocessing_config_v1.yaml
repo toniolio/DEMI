@@ -1,0 +1,119 @@
+schema_version: 1
+pipeline_version: continuous_preprocessing_v1
+
+safety:
+  mutate_source_edf: false
+  write_edf: false
+  construct_epochs: false
+  run_autoreject: false
+  compute_csd: false
+  change_event_eligibility: false
+  participant_inclusion_decisions: false
+  parallel_recordings: false
+  process_one_recording_at_a_time: true
+
+paths:
+  raw_root: _Data/eeg/raw
+  output_root: _Data/eeg/mne_preprocessing/continuous_validation_v1
+
+channels:
+  detector_source_channels:
+    [FP1, FP2, F7, F3, FZ, F4, F8, FT7, FC3, FCZ, FC4, FT8, T7, C3, CZ,
+     C4, T8, TP7, CP3, CPZ, CP4, TP8, P7, P3, PZ, P4, P8, O1, OZ, O2]
+  reference_source_channels:
+    [FP1, FP2, F7, F3, FZ, F4, F8, FT7, FC3, FCZ, FC4, FT8, T7, C3, CZ,
+     C4, T8, TP7, CP3, CPZ, CP4, TP8, P7, P3, PZ, P4, P8, O1, OZ, O2]
+  eeg_target_channels:
+    [FP1, FP2, F7, F3, FZ, F4, F8, FT7, FC3, FCZ, FC4, FT8, T7, C3, CZ,
+     C4, T8, M1, TP7, CP3, CPZ, CP4, TP8, M2, P7, P3, PZ, P4, P8, O1,
+     OZ, O2]
+  mastoid_source_excluded_target_retained: [M1, M2]
+  eog_channels: [HEO, VEO]
+  emg_channels: [EMG-L, EMG-A]
+  stim_channels: [Trigger]
+  all_retained_channels:
+    [FP1, FP2, F7, F3, FZ, F4, F8, FT7, FC3, FCZ, FC4, FT8, T7, C3, CZ,
+     C4, T8, M1, TP7, CP3, CPZ, CP4, TP8, M2, P7, P3, PZ, P4, P8, O1,
+     OZ, O2, HEO, VEO, EMG-L, EMG-A, Trigger]
+
+montage:
+  name: standard_1005
+  historical_besa_is_active: false
+
+line_noise:
+  enabled: false
+  frequency_hz: 60.0
+  method: spectrum_fit
+  filter_length: 10s
+  multitaper_bandwidth_hz: 2.0
+  p_value: 0.01
+  picks: [eeg, eog]
+
+analysis_filter:
+  high_pass_hz: 0.5
+  low_pass_hz: 45.0
+  method: fir
+  phase: zero
+  fir_design: firwin
+  pad: reflect_limited
+  skip_by_annotation: [edge, bad_acq_skip]
+  picks: [eeg, eog]
+
+detector:
+  input_branch: native_unfiltered_unnotched_unreferenced
+  resample_hz: null
+  random_seed: 20260712
+  do_detrend: true
+  correlation: true
+  ransac: true
+  matlab_strict: false
+  channel_wise: false
+  max_chunk_size: null
+  reject_by_annotation: null
+  determinism_repeats: 2
+  primary_criteria:
+    [bad_by_nan, bad_by_flat, bad_by_deviation, bad_by_hf_noise,
+     bad_by_correlation, bad_by_SNR, bad_by_dropout, bad_by_ransac]
+  report_only_criteria: [bad_by_psd]
+
+reference:
+  kind: explicit_scalp_average
+  minimum_usable_scalp_channels: 23
+  apply_to_all_32_eeg_targets: true
+
+interpolation:
+  method: spherical_spline
+  mastoid_candidates: false
+  stop_proportion: 0.25
+  proportion_denominator: 30
+  reset_bads_after_success: true
+
+ica:
+  high_pass_hz: 1.0
+  low_pass_hz: 45.0
+  method: infomax
+  extended: true
+  random_seed: 20260712
+  n_components: estimated_eeg_rank
+  fit_decim: 4
+  eog_channels: [HEO, VEO]
+  eog_measure: zscore
+  eog_threshold: 3.0
+  eog_score_low_hz: 1.0
+  eog_score_high_hz: 10.0
+  maximum_automatic_eog_components: 2
+  ordinary_zero_component_action: continue_with_zero_exclusions
+  component_review_exception_ids: [86]
+
+derivatives:
+  fif_format: single
+  ordinary_signal_derivative: post_ica_only
+  retain_ica_object: true
+  retain_pre_ica_for_review_stops: true
+  atomic_directory_publish: true
+  write_component_time_series: false
+
+validation:
+  finite_scan_chunk_seconds: 120.0
+  require_reopen: true
+  require_source_rehash: true
