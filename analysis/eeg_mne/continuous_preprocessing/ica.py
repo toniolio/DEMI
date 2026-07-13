@@ -82,11 +82,14 @@ def prepare_ica_fitting_copy(
     }
 
 
-def estimate_eeg_rank(raw: mne.io.BaseRaw) -> dict[str, Any]:
+def estimate_eeg_rank(raw: mne.io.BaseRaw, config: Mapping[str, Any]) -> dict[str, Any]:
     """Estimate and validate EEG rank after reference and interpolation.
 
     Args:
         raw: Prepared ICA-fitting branch.
+        config: Validated complete production configuration. The fixed relative
+            tolerance recognizes the exact average-reference dependency while
+            remaining unchanged across recordings.
 
     Returns:
         Full MNE rank mapping plus the validated integer EEG rank.
@@ -99,11 +102,14 @@ def estimate_eeg_rank(raw: mne.io.BaseRaw) -> dict[str, Any]:
         Reads signal data for rank estimation. Writes nothing.
     """
 
+    tolerance = float(config["ica"]["rank_tolerance"])
+    tolerance_kind = config["ica"]["rank_tolerance_kind"]
     rank_map = mne.compute_rank(
         raw,
         rank=None,
         proj=False,
-        tol="auto",
+        tol=tolerance,
+        tol_kind=tolerance_kind,
         on_rank_mismatch="raise",
         verbose="ERROR",
     )
@@ -116,6 +122,9 @@ def estimate_eeg_rank(raw: mne.io.BaseRaw) -> dict[str, Any]:
     )
     evidence = {
         "method": "mne.compute_rank",
+        "tolerance": tolerance,
+        "tolerance_kind": tolerance_kind,
+        "tolerance_fixed_across_recordings": True,
         "rank_by_channel_type": {key: int(value) for key, value in rank_map.items()},
         "estimated_eeg_rank": int(rank_value) if isinstance(rank_value, (int, np.integer)) else None,
         "eeg_channel_count": len(EEG_TARGET_CHANNELS),

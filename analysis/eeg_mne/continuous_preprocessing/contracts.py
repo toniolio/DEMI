@@ -308,6 +308,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
         "extended": True,
         "random_seed": 20260712,
         "n_components": "estimated_eeg_rank",
+        "rank_tolerance": 1.0e-6,
+        "rank_tolerance_kind": "relative",
         "eog_channels": list(EOG_CHANNELS),
         "eog_measure": "zscore",
         "eog_threshold": 3.0,

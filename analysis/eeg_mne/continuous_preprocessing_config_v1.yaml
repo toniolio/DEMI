@@ -95,6 +95,8 @@ ica:
   extended: true
   random_seed: 20260712
   n_components: estimated_eeg_rank
+  rank_tolerance: 1.0e-6
+  rank_tolerance_kind: relative
   fit_decim: 4
   eog_channels: [HEO, VEO]
   eog_measure: zscore

@@ -489,7 +489,11 @@ def process_recording(
         del raw
         raw = None
         gc.collect()
-        rank = _run_stage(ledger, "rank_estimation", lambda: estimate_eeg_rank(ica_raw))  # type: ignore[arg-type]
+        rank = _run_stage(
+            ledger,
+            "rank_estimation",
+            lambda: estimate_eeg_rank(ica_raw, config),  # type: ignore[arg-type]
+        )
         ica, fit = _run_stage(
             ledger,
             "ica_fit",

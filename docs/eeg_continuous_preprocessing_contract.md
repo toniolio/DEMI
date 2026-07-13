@@ -30,9 +30,11 @@ spherical splines. A count of 8/30 or greater is an objective stop.
 
 ICA is fit on a separate 1--45 Hz copy with the same line-noise, reference, and
 interpolation surface. The tracked implementation uses rank-aware extended
-Infomax, seed 20260712, and fixed 4:1 fitting decimation (effective 250 Hz for
-the 1000 Hz DEMI recordings). HEO and VEO are scored independently with MNE's
-fixed z-score rule. Zero proposals is valid; more than two proposals stops the
+Infomax, seed 20260712, fixed relative rank tolerance 1e-6, and fixed 4:1
+fitting decimation (effective 250 Hz for the 1000 Hz DEMI recordings). The
+relative tolerance recognizes the exact average-reference dependency and is
+not tuned by recording. HEO and VEO are scored independently with MNE's fixed
+z-score rule. Zero proposals is valid; more than two proposals stops the
 recording. ID 86 always stops at the component-review boundary without an
 automatic post-ICA derivative.
 

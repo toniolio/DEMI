@@ -28,6 +28,7 @@ from continuous_preprocessing.contracts import (  # noqa: E402
 from continuous_preprocessing.ica import (  # noqa: E402
     apply_ica_exclusions,
     decide_component_route,
+    estimate_eeg_rank,
     fit_ica,
     propose_eog_components,
 )
@@ -255,6 +256,17 @@ def test_fit_ica_passes_rank_method_seed_and_extended_contract(monkeypatch: pyte
     assert captured["init"]["random_state"] == 20260712
     assert captured["fit"]["picks"] == list(EEG_TARGET_CHANNELS)
     assert evidence["fit_decim"] == config()["ica"]["fit_decim"]
+
+
+def test_rank_estimator_recognizes_exact_average_reference_dependency() -> None:
+    """Fixed relative tolerance reports rank 31, not a numerical rank-32 conflict."""
+
+    raw = synthetic_typed_montaged_raw(2000)
+    apply_reference(raw, calculate_reference_sources([], config()))
+    result = estimate_eeg_rank(raw, config())
+    assert result["estimated_eeg_rank"] == 31
+    assert result["tolerance"] == 1.0e-6
+    assert result["tolerance_kind"] == "relative"
 
 
 def test_ordinary_zero_more_than_two_and_id86_component_routes() -> None:
