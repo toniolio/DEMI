@@ -257,7 +257,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
     _require_equal(config.get("montage", {}).get("historical_besa_is_active"), False, "montage.historical_besa_is_active")
 
     line = config.get("line_noise", {})
-    _require_equal(line.get("enabled"), False, "line_noise.enabled")
+    if not isinstance(line.get("enabled"), bool):
+        raise ValueError("line_noise.enabled must be one fixed run-level boolean.")
     _require_equal(float(line.get("frequency_hz", 0.0)), 60.0, "line_noise.frequency_hz")
     _require_equal(line.get("method"), "spectrum_fit", "line_noise.method")
     _require_equal(line.get("filter_length"), "10s", "line_noise.filter_length")

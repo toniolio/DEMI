@@ -176,6 +176,33 @@ def atomic_write_json(path: Path, value: Any, output_root: Path, raw_root: Path)
     os.replace(temporary, path)
 
 
+def atomic_write_text(path: Path, value: str, output_root: Path, raw_root: Path) -> None:
+    """Write UTF-8 text through a sibling temporary file and atomic rename.
+
+    Args:
+        path: Final text path.
+        value: Complete UTF-8 text.
+        output_root: Authorized validation root.
+        raw_root: Immutable source root.
+
+    Returns:
+        None.
+
+    Side effects:
+        Creates and fsyncs one temporary file, then renames it to ``path``.
+    """
+
+    validate_derivative_path(path, output_root, raw_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.stem}.tmp-{uuid.uuid4().hex}{path.suffix}")
+    validate_derivative_path(temporary, output_root, raw_root)
+    with temporary.open("x", encoding="utf-8", newline="\n") as handle:
+        handle.write(value)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, path)
+
+
 def artifact_descriptor(path: Path, result_dir: Path) -> dict[str, Any]:
     """Return a relative-path, byte-size, and SHA-256 artifact descriptor."""
 
