@@ -24,12 +24,18 @@ constitute a new behavioural reanalysis. The earlier R/GAM workflow under
 [`_Scripts/`](../_Scripts/README.md) and the pinned external preprocessing
 submodule are provenance sources rather than active processing entry points.
 
-The current tracked workflow stops at read-only inventory, linkage, event
-evidence, raw-channel/montage QC, and preprocessing-parameter audits. It has
-not yet written production-preprocessed EEG or constructed epochs.
+The tracked workflow now separates scripts 00--12, which provide read-only
+inventory and parameter evidence, from script 13, which implements production
+continuous preprocessing. Script 13 is currently restricted to a small saved
+validation cohort so derivative integrity, runtime, storage, resumability, and
+exception routing can be reviewed before a full-recording run is authorized.
+Epoch construction remains a later, separate stage.
 
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary
 planning materials remain private. Tracked identity, montage, and parameter
 contracts plus public tests document the reproducible implementation
 boundaries without exposing those private scientific decision records.
+
+The public technical contract for the saved continuous derivatives is
+[`eeg_continuous_preprocessing_contract.md`](eeg_continuous_preprocessing_contract.md).

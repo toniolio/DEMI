@@ -1,16 +1,18 @@
 # Active MNE EEG preparation path
 
 This is the active EEG reanalysis path. It starts from raw EDF recordings and
-currently provides inventory, frozen-behaviour linkage, event evidence,
-descriptive raw-channel QC, montage provenance, and preprocessing-parameter
-audits. The earlier EEG/GAM code in [`../../_Scripts/`](../../_Scripts/README.md)
+provides inventory, frozen-behaviour linkage, event evidence, descriptive
+raw-channel QC, preprocessing-parameter audits, and a versioned production
+continuous-preprocessing implementation. The earlier EEG/GAM code in
+[`../../_Scripts/`](../../_Scripts/README.md)
 and the pinned external preprocessing submodule are historical evidence, not
 active processing entry points.
 
-No script in this directory currently writes production-preprocessed EEG or
-constructs epochs. Scripts 00–12 are inspection/evidence scripts. Script 04's
-historical filename notwithstanding, it is a config-driven raw-QC driver and
-does not preprocess signals.
+Scripts 00--12 are inspection/evidence scripts. Script 04's historical filename
+notwithstanding, it is a config-driven raw-QC driver and does not preprocess
+signals. Script 13 is the first production continuous-preprocessing driver. It
+currently writes only a compact saved validation cohort; no script constructs
+epochs.
 
 ## Environment and local inputs
 
@@ -120,6 +122,28 @@ detector-pool effect. They write local evidence under
 all in-memory signal changes. See
 [`../../docs/eeg_preprocessing_parameter_audit.md`](../../docs/eeg_preprocessing_parameter_audit.md).
 
+### 8. Run the saved continuous-preprocessing validation cohort
+
+```sh
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py
+```
+
+The tracked contract is `continuous_preprocessing_config_v1.yaml`; focused
+production modules are under `continuous_preprocessing/`. Results are written
+atomically below
+`_Data/eeg/mne_preprocessing/continuous_validation_v1/`. The driver processes
+one EDF at a time and has no all-recording mode.
+
+Use `--max-files 2` for a bounded interruption/resume check. Valid terminal
+recordings are skipped only after source/config/code/environment and artifact
+hashes match. Use `--recording 'demi_01 Data.edf' --force` for an explicit
+focused recomputation; the old result is preserved in local history.
+
+Ordinary results retain one post-ICA continuous FIF plus the ICA object. A
+component-review stop retains the pre-ICA continuous FIF and available ICA
+evidence but no automatic post-ICA file. See
+[`../../docs/eeg_continuous_preprocessing_contract.md`](../../docs/eeg_continuous_preprocessing_contract.md).
+
 ## Script index
 
 | Script | Current role | Status |
@@ -137,6 +161,11 @@ all in-memory signal changes. See
 | 10 | Global bad-channel method comparison | Active parameter evidence |
 | 11 | Line-noise/filter branch comparison | Active parameter evidence |
 | 12 | M1/M2 detector-pool sensitivity | Active parameter evidence |
+| 13 | Saved production continuous preprocessing | Validation cohort only; sequential and resumable |
+
+Scripts 00--12 remain evidence/audit programs. Script 13 and later numbered
+continuous scripts belong to production preprocessing. Epoch construction will
+use a later separate namespace and authorization.
 
 ## Scientific-policy boundary and stopping point
 
@@ -150,11 +179,10 @@ provenance. Public, reproducible implementation boundaries remain tracked in:
   `preprocessing_parameter_audit.py`;
 - the public contract documents under [`../../docs/`](../../docs/).
 
-The next separately authorized implementation step is a no-write dry run of
-the accepted production continuous-preprocessing stages with complete
-provenance. The present workflow stops before that implementation. It does not
-claim cleaned continuous derivatives, an epoch ledger, epochs, time-frequency
-features, or new EEG results.
+The accepted continuous-preprocessing stages are implemented for a saved local
+validation cohort. Full-recording production processing still requires a
+separate authorization after validation review. The current workflow does not
+claim an epoch ledger, epochs, time-frequency features, or new EEG results.
 
 ## Validation
 
@@ -169,4 +197,7 @@ git status --short
 Focused contracts are covered by `tests/test_event_source_contract.py`,
 `tests/test_channel_qc.py`, `tests/test_montage_contract.py`,
 `tests/test_preprocessing_parameter_audit.py`, and
-`tests/test_raw_qc_guardrails.py`.
+`tests/test_raw_qc_guardrails.py`. Production continuous contracts, ICA routing,
+atomic derivative reopening, and resumability are covered by
+`tests/test_continuous_preprocessing_contract.py` and
+`tests/test_continuous_preprocessing_storage.py`.

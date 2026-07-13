@@ -18,7 +18,7 @@
 
 ## What’s inside (brief)
 
-- [`analysis/eeg_mne/`](analysis/eeg_mne/README.md) — active raw/MNE EEG inventory, event-evidence, and preprocessing-foundation code.
+- [`analysis/eeg_mne/`](analysis/eeg_mne/README.md) — active raw/MNE EEG evidence scripts and versioned continuous-preprocessing implementation.
 - [`analysis/behavior/`](analysis/behavior/README.md) — frozen-behaviour and TraceLab linkage reconstruction required by the EEG reanalysis; it is not a new behavioural analysis.
 - [`_Scripts/`](_Scripts/README.md) — published behavioural workflow plus the earlier EEG/GAM workflow, retained for reproducibility and provenance.
 - [`external/DEMI_EEG_Pipeline/`](external/DEMI_EEG_Pipeline/) — pinned historical EEG preprocessing submodule; reference evidence, not the active pipeline.
@@ -41,7 +41,7 @@
 
 > Ingram, T. G. J., Hurst, A. J., Solomon, J. P., Stratas, A., & Boe, S. G. (2022). Imagined movement accuracy is strongly associated with drivers of overt movement error and weakly associated with imagery vividness. *Journal of Experimental Psychology: Human Perception and Performance, 48*(12), 1362–1372. https://doi.org/10.1037/xhp0001064
 
-- **EEG:** (**WIP**); manuscript in preparation. The active preparation path and its present stopping boundary are documented in [`analysis/eeg_mne/README.md`](analysis/eeg_mne/README.md). No production-preprocessed EEG, epochs, or active reanalysis results are currently claimed.
+- **EEG:** (**WIP**); manuscript in preparation. The active path includes a saved, resumable continuous-preprocessing validation cohort. It is not a full-recording production run and does not construct epochs or produce active reanalysis results. See [`analysis/eeg_mne/README.md`](analysis/eeg_mne/README.md).
 
 ## Reproducibility & setup
 
