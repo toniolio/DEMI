@@ -11,7 +11,7 @@
 
 **At a glance:**
 
-- **Behaviour (Published):** Participants performed (overtly or imagined) a complex motor task designed to challenge motor acuity. Results support notion of motor imagery accuracy; similarly affected by drivers of overt movement error.
+- **Behaviour (Published):** Participants performed (overtly or imagined) a complex motor task designed to challenge motor acuity. Results support the existence of motor-imagery "accuracy" (not just vividness), which was influenced by many of the same factors that affected overt movement error.
 - **EEG (active reanalysis):** Raw recordings are being reprocessed with a Python/MNE-first workflow. The earlier hierarchical-GAM analysis is retained as historical provenance, not the active confirmatory pipeline.
 
 ---
