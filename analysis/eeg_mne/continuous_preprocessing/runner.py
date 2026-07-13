@@ -395,6 +395,49 @@ def markdown_summary(aggregate: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def execute_members(
+    members: Sequence[Mapping[str, Any]],
+    processor: Any,
+    progress_callback: Any | None = None,
+) -> list[dict[str, Any]]:
+    """Execute recording jobs sequentially and continue after one failure.
+
+    Args:
+        members: Ordered cohort member mappings.
+        processor: Callable accepting one member and returning a result mapping.
+        progress_callback: Optional callable receiving ``(index, results)``
+            after every attempt.
+
+    Returns:
+        One result per member in input order. Raised per-recording exceptions
+        become failed result rows so the next member still runs.
+
+    Side effects:
+        Determined by the supplied callables. This helper itself writes nothing.
+    """
+
+    results: list[dict[str, Any]] = []
+    for index, member in enumerate(members, start=1):
+        try:
+            result = dict(processor(member))
+        except Exception as error:
+            source_path = Path(member["source_path"])
+            result = {
+                "source_filename": member["source_filename"],
+                "status": "failed",
+                "reason": "unpublished_incomplete_result",
+                "exception_type": type(error).__name__,
+                "exception_message": str(error),
+                "total_elapsed_seconds": None,
+                "input_bytes": source_path.stat().st_size if source_path.is_file() else None,
+                "output_bytes": None,
+            }
+        results.append(result)
+        if progress_callback is not None:
+            progress_callback(index, results)
+    return results
+
+
 def run_validation_cohort(
     *,
     repo_root: Path,
@@ -448,7 +491,6 @@ def run_validation_cohort(
     run_dir.mkdir(parents=True, exist_ok=False)
     atomic_write_json(run_dir / "cohort_selection.json", cohort, output_root, raw_root)
 
-    results: list[dict[str, Any]] = []
     started = time.perf_counter()
     attempted_names = {member["source_filename"] for member in members}
     not_attempted = [
@@ -456,9 +498,10 @@ def run_validation_cohort(
         for member in cohort["members"]
         if member["source_filename"] not in attempted_names
     ]
-    for index, member in enumerate(members, start=1):
-        try:
-            result = process_recording(
+    def processor(member: Mapping[str, Any]) -> dict[str, Any]:
+        """Process one selected member with the shared fixed run state."""
+
+        return process_recording(
                 Path(member["source_path"]),
                 repo_root=repo_root,
                 raw_root=raw_root,
@@ -468,18 +511,10 @@ def run_validation_cohort(
                 selection_context=member,
                 force=force,
             )
-        except Exception as error:
-            result = {
-                "source_filename": member["source_filename"],
-                "status": "failed",
-                "reason": "unpublished_incomplete_result",
-                "exception_type": type(error).__name__,
-                "exception_message": str(error),
-                "total_elapsed_seconds": None,
-                "input_bytes": Path(member["source_path"]).stat().st_size,
-                "output_bytes": None,
-            }
-        results.append(result)
+
+    def flush_progress(index: int, results: list[dict[str, Any]]) -> None:
+        """Atomically flush the invocation ledger after every recording."""
+
         atomic_write_json(
             run_dir / "progress.json",
             {
@@ -492,6 +527,8 @@ def run_validation_cohort(
             output_root,
             raw_root,
         )
+
+    results = execute_members(members, processor, flush_progress)
 
     aggregate = aggregate_validation_run(
         repo_root=repo_root,
