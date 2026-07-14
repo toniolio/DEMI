@@ -24,6 +24,7 @@ from continuous_preprocessing.contracts import (  # noqa: E402
 )
 from continuous_preprocessing.cohort import select_production_surface  # noqa: E402
 from continuous_preprocessing.runner import (  # noqa: E402
+    aggregate_continuous_run,
     compare_source_inventories,
     execute_members,
     reopen_current_surface_derivatives,
@@ -419,3 +420,35 @@ def test_current_surface_reopen_verifier_rescans_saved_raw(tmp_path: Path) -> No
     )
     assert verification["continuous_raw_artifact_count"] == 1
     assert verification["all_current_fif_and_ica_artifacts_reopened_and_valid"]
+
+
+def test_bounded_production_invocation_is_not_labeled_full_dataset_run(
+    tmp_path: Path,
+) -> None:
+    """A finalized smoke remains explicitly partial until all members are attempted."""
+
+    surface = {
+        "surface_kind": "authorized_all_inventoried_readable_edfs_v1",
+        "surface_size": 95,
+        "members": [
+            {"source_filename": f"demi_{index:03d} Data.edf"}
+            for index in range(1, 96)
+        ],
+    }
+    aggregate = aggregate_continuous_run(
+        repo_root=tmp_path,
+        output_root=tmp_path / "continuous_v1",
+        surface=surface,
+        invocation_results=[],
+        run_provenance_data={},
+        not_attempted=[row["source_filename"] for row in surface["members"]][1:],
+        run_started_at="synthetic",
+        run_elapsed_seconds=0.0,
+        run_state="finalized",
+        preflight={},
+        source_inventory_before=None,
+        source_inventory_after=None,
+    )
+    assert aggregate["validation"]["full_dataset_run_performed"] is False
+    assert aggregate["validation"]["all_surface_members_have_terminal_manifests"] is False
+    assert aggregate["current_surface_terminal_counts"]["missing_or_incomplete"] == 95

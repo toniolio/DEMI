@@ -531,11 +531,10 @@ def aggregate_continuous_run(
         "operational_recommendation": operational,
         "validation": {
             "all_saved_derivatives_reopened_and_valid": bool(recording_rows)
-            and not missing
             and all(row["derivatives_reopened_and_valid"] for row in recording_rows),
             "all_terminal_raw_sources_unchanged": bool(recording_rows)
-            and not missing
             and all(row["raw_source_unchanged"] for row in recording_rows),
+            "all_surface_members_have_terminal_manifests": not missing,
             "full_source_inventory_unchanged": (
                 inventory_comparison["unchanged"]
                 if inventory_comparison is not None
@@ -553,6 +552,7 @@ def aggregate_continuous_run(
                 and surface.get("surface_kind")
                 == "authorized_all_inventoried_readable_edfs_v1"
                 and surface.get("surface_size") == 95
+                and not not_attempted
             ),
             "saved_signal_recording_count": sum(
                 row["pre_ica_derivative_written"] or row["post_ica_derivative_written"]
