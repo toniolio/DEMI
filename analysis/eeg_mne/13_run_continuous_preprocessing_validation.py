@@ -7,7 +7,7 @@ Scripts 00--12 are evidence and audit programs. This script is the first
 production continuous-preprocessing driver. Its default remains the separate
 six-recording validation cohort. The explicit ``--all-recordings`` mode uses
 the same validated package and configuration to process all 95 inventoried
-readable EDF files under a separate production root.
+readable EDF files under the authoritative v2 production root.
 
 Inputs
 ------
@@ -21,7 +21,7 @@ Outputs
 New versioned per-recording FIF/JSON results and run-level JSON/Markdown
 evidence are written below the ignored directory
 ``_Data/eeg/mne_preprocessing/continuous_validation_v1/`` for validation or
-``_Data/eeg/mne_preprocessing/continuous_v1/`` for production. Ordinary
+``_Data/eeg/mne_preprocessing/continuous_v2/`` for fresh production. Ordinary
 terminal files retain one canonical post-ICA continuous FIF plus the ICA
 object; review stops retain a pre-ICA FIF and ICA evidence without an automatic
 post-ICA file.
@@ -91,7 +91,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--all-recordings",
         action="store_true",
-        help="Use the authorized 95-file production surface and continuous_v1 root.",
+        help="Use the authorized 95-file production surface and continuous_v2 root.",
     )
     parser.add_argument(
         "--config",
@@ -183,13 +183,15 @@ def main() -> int:
         verification = verify_current_surface(
             repo_root=REPO_ROOT,
             config_path=config_path.resolve(),
-            surface_mode="production",
+            surface_mode="production_v2",
         )
         print(f"Verification path: {verification['verification_path']}")
         print(
             "All current FIF/ICA artifacts valid: "
             f"{verification['all_current_fif_and_ica_artifacts_reopened_and_valid']}"
         )
+        print(f"Current surface terminal counts: {verification['current_surface_terminal_counts']}")
+        print(f"Current surface QC warnings: {verification['current_surface_qc_warning_counts']}")
         return (
             0
             if verification["all_current_fif_and_ica_artifacts_reopened_and_valid"]
@@ -198,7 +200,7 @@ def main() -> int:
     aggregate = run_continuous_surface(
         repo_root=REPO_ROOT,
         config_path=config_path.resolve(),
-        surface_mode="production" if args.all_recordings else "validation",
+        surface_mode="production_v2" if args.all_recordings else "validation",
         max_files=args.max_files,
         only_recording=args.recording,
         force=args.force,
@@ -206,7 +208,11 @@ def main() -> int:
     print(f"Run directory: {aggregate['run_directory']}")
     print(f"Invocation counts: {aggregate['invocation_counts']}")
     print(f"Current surface terminal counts: {aggregate['current_surface_terminal_counts']}")
-    return 0 if aggregate["invocation_counts"].get("failed", 0) == 0 else 1
+    print(f"Current surface QC warnings: {aggregate['current_surface_qc_warning_counts']}")
+    # Per-recording objective stops or failures are flushed into aggregate
+    # evidence and do not abort an unattended run. Uncaught preflight/run-level
+    # exceptions still produce the shell's nonzero exit status.
+    return 0
 
 
 if __name__ == "__main__":

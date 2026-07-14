@@ -33,6 +33,7 @@ from continuous_preprocessing.ica import (  # noqa: E402
     historical_eog_component_order,
     propose_eog_components,
 )
+from continuous_preprocessing.pipeline import completion_qc_state  # noqa: E402
 from continuous_preprocessing.source import (  # noqa: E402
     apply_channel_types,
     apply_montage,
@@ -120,13 +121,20 @@ def test_accepted_detector_reference_and_target_channel_contract() -> None:
     assert set(MASTOID_CHANNELS).issubset(EEG_TARGET_CHANNELS)
 
 
-def test_validation_and_authorized_production_output_contracts_are_separate() -> None:
-    """One tracked config owns distinct validation and 95-file production roots."""
+def test_validation_and_v1_v2_production_output_contracts_are_separate() -> None:
+    """Validation, preserved v1, and authoritative v2 roots remain distinct."""
 
     cfg = config()
     assert cfg["paths"]["output_root"].endswith("continuous_validation_v1")
     assert cfg["paths"]["production_output_root"].endswith("continuous_v1")
-    assert cfg["paths"]["output_root"] != cfg["paths"]["production_output_root"]
+    assert cfg["paths"]["production_v2_output_root"].endswith("continuous_v2")
+    assert len(
+        {
+            cfg["paths"]["output_root"],
+            cfg["paths"]["production_output_root"],
+            cfg["paths"]["production_v2_output_root"],
+        }
+    ) == 3
     assert cfg["production_surface"]["expected_readable_edf_count"] == 95
     assert cfg["production_surface"]["minimum_free_bytes"] == 40 * 1024**3
 
@@ -160,16 +168,34 @@ def test_published_criterion_union_excludes_psd_only_findings() -> None:
     assert result["psd_entered_authoritative_union"] is False
 
 
-def test_25_percent_stop_uses_30_channel_denominator() -> None:
-    """Seven accepted bads pass while eight trigger the >=25% objective stop."""
+def test_above_25_percent_warns_and_continues_with_30_channel_denominator() -> None:
+    """Seven is ordinary; eight warns and still supports the normal reference."""
 
     seven = list(SCALP_SOURCE_CHANNELS[:7])
     result = accepted_global_bad_union(detection_with(seven), config())
     assert result["accepted_global_bad_proportion"] == pytest.approx(7 / 30)
-    with pytest.raises(ObjectiveStop, match="8/30"):
-        accepted_global_bad_union(
-            detection_with(list(SCALP_SOURCE_CHANNELS[:8])), config()
-        )
+    assert result["high_interpolation_warning"]["triggered"] is False
+    eight = accepted_global_bad_union(
+        detection_with(list(SCALP_SOURCE_CHANNELS[:8])), config()
+    )
+    assert eight["accepted_global_bad_proportion"] == pytest.approx(8 / 30)
+    assert eight["high_interpolation_warning"]["triggered"] is True
+    assert eight["high_interpolation_warning"]["action"].startswith("continue")
+    assert calculate_reference_sources(eight["accepted_global_bads"], config())[
+        "reference_source_count"
+    ] == 22
+
+
+def test_high_interpolation_is_complete_with_qc_warning_not_exclusion() -> None:
+    """The historical warning remains terminally complete and non-eligibility evidence."""
+
+    union = accepted_global_bad_union(
+        detection_with(list(SCALP_SOURCE_CHANNELS[:8])), config()
+    )
+    state = completion_qc_state(union, "complete")
+    assert state["completion_class"] == "complete_with_qc_warning"
+    assert state["qc_warnings"][0]["code"] == "global_bad_proportion_above_25_percent"
+    assert state["qc_warnings"][0]["participant_event_epoch_or_analytic_decision"] is False
 
 
 def test_reference_sources_exclude_global_bads_and_mastoids() -> None:

@@ -81,6 +81,23 @@ from .storage import (
 T = TypeVar("T")
 
 
+def completion_qc_state(
+    union: Mapping[str, Any], terminal_status: str
+) -> dict[str, Any]:
+    """Return the explicit completion class and non-eligibility QC warnings."""
+
+    warning = union.get("high_interpolation_warning") or {}
+    warnings = [dict(warning)] if warning.get("triggered") else []
+    return {
+        "completion_class": (
+            "complete_with_qc_warning"
+            if warnings and terminal_status == "complete"
+            else terminal_status
+        ),
+        "qc_warnings": warnings,
+    }
+
+
 @contextlib.contextmanager
 def quiet_third_party_output() -> Any:
     """Capture verbose PyPREP/MNE progress while retaining a compact hash."""
@@ -463,12 +480,26 @@ def process_recording(
             "reference_application",
             lambda: apply_reference(analysis_raw, reference),  # type: ignore[arg-type]
         )
-        interpolation = _run_stage(
-            ledger,
-            "interpolation",
-            lambda: interpolate_global_bads(
+        def interpolate_with_warning_evidence() -> dict[str, Any]:
+            """Interpolate accepted bads and carry the historical warning."""
+
+            result = interpolate_global_bads(
                 analysis_raw, union["accepted_global_bads"], config  # type: ignore[arg-type]
-            ),
+            )
+            warning = dict(union["high_interpolation_warning"])
+            warning.update(
+                {
+                    "successfully_interpolated_count": result["interpolation_count"],
+                    "successfully_interpolated_channels": result[
+                        "successfully_interpolated_channels"
+                    ],
+                }
+            )
+            result["high_interpolation_warning"] = warning
+            return result
+
+        interpolation = _run_stage(
+            ledger, "interpolation", interpolate_with_warning_evidence
         )
         post_validation = _run_stage(
             ledger,
@@ -610,6 +641,7 @@ def process_recording(
         )
         manifest.update(
             {
+                **completion_qc_state(union, terminal_status),  # type: ignore[arg-type]
                 "channel_contract": {
                     "typing": type_evidence,
                     "montage": montage_evidence,

@@ -331,8 +331,9 @@ def accepted_global_bad_union(detection: Mapping[str, Any], config: Mapping[str,
         Primary bads, PSD report-only findings, and threshold evidence.
 
     Raises:
-        ObjectiveStop: If the primary count is at least 25% of the fixed
-            30-channel denominator or contains a non-source label.
+        ObjectiveStop: If the detector returns a non-source label. A primary
+            count above the historical 25% boundary is warning evidence and
+            does not stop ordinary preprocessing.
 
     Side effects:
         None.
@@ -364,13 +365,19 @@ def accepted_global_bad_union(detection: Mapping[str, Any], config: Mapping[str,
         "psd_entered_authoritative_union": False,
         "m1_m2_detector_source_excluded": list(MASTOID_CHANNELS),
     }
-    if proportion >= float(config["interpolation"]["stop_proportion"]):
-        raise ObjectiveStop(
-            "accepted_global_bad_union",
-            "global_bad_proportion_at_or_above_25_percent",
-            f"Accepted global bads are {len(primary)}/{denominator} ({proportion:.3f}).",
-            evidence,
-        )
+    warning_threshold = float(config["interpolation"]["warning_proportion"])
+    warning = proportion > warning_threshold
+    evidence["high_interpolation_warning"] = {
+        "triggered": warning,
+        "code": "global_bad_proportion_above_25_percent",
+        "threshold_proportion": warning_threshold,
+        "comparison": "strictly_greater_than",
+        "observed_count": len(primary),
+        "observed_proportion": proportion,
+        "denominator": denominator,
+        "action": "continue_preprocessing_and_mark_complete_with_qc_warning",
+        "participant_event_epoch_or_analytic_decision": False,
+    }
     return evidence
 
 

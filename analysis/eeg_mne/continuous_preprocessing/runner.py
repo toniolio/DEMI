@@ -43,7 +43,7 @@ from .storage import (
 )
 
 
-SURFACE_MODES = ("validation", "production")
+SURFACE_MODES = ("validation", "production", "production_v2")
 
 
 def production_code_paths(repo_root: Path) -> list[Path]:
@@ -120,7 +120,7 @@ def build_surface(
             "surface_kind": cohort["cohort_kind"],
             "surface_size": cohort["cohort_size"],
         }
-    if surface_mode == "production":
+    if surface_mode in {"production", "production_v2"}:
         return build_production_surface(repo_root, config)
     raise ValueError(f"Unknown continuous-preprocessing surface mode: {surface_mode!r}")
 
@@ -134,6 +134,8 @@ def output_root_for_mode(
         configured = str(config["paths"]["output_root"])
     elif surface_mode == "production":
         configured = str(config["paths"]["production_output_root"])
+    elif surface_mode == "production_v2":
+        configured = str(config["paths"]["production_v2_output_root"])
     else:
         raise ValueError(f"Unknown continuous-preprocessing surface mode: {surface_mode!r}")
     output_root = (repo_root / configured).resolve()
@@ -158,11 +160,15 @@ def validate_production_preflight(
     ] is not True:
         raise ValueError("The authorized production run requires recording concurrency one.")
     validation_root = (repo_root / config["paths"]["output_root"]).resolve()
+    production_v1_root = (repo_root / config["paths"]["production_output_root"]).resolve()
     production_root = output_root.resolve()
-    overlap = (
-        production_root == validation_root
-        or production_root in validation_root.parents
-        or validation_root in production_root.parents
+    protected_roots = {validation_root, production_v1_root}
+    protected_roots.discard(production_root)
+    overlap = any(
+        production_root == other
+        or production_root in other.parents
+        or other in production_root.parents
+        for other in protected_roots
     )
     if overlap:
         raise ValueError("Production and validation output roots overlap.")
@@ -182,6 +188,7 @@ def validate_production_preflight(
     return {
         "production_output_root": production_root.as_posix(),
         "validation_output_root": validation_root.as_posix(),
+        "preserved_production_v1_output_root": production_v1_root.as_posix(),
         "roots_are_separate": True,
         "production_output_root_is_gitignored": True,
         "minimum_free_bytes": minimum,
@@ -358,6 +365,12 @@ def aggregate_continuous_run(
             {
                 "source_filename": manifest["source"]["source_filename"],
                 "status": manifest["status"],
+                "completion_class": manifest.get(
+                    "completion_class", manifest["status"]
+                ),
+                "qc_warning_codes": [
+                    warning["code"] for warning in manifest.get("qc_warnings", [])
+                ],
                 "stop_or_failure_code": stop.get("code"),
                 "stop_or_failure_stage": stop.get("stage"),
                 "stop_or_failure_detail": stop.get("detail"),
@@ -510,6 +523,9 @@ def aggregate_continuous_run(
         status: int(terminal_counts.get(status, 0))
         for status in ("complete", "stopped", "failed")
     }
+    qc_warning_counts = Counter(
+        code for row in recording_rows for code in row["qc_warning_codes"]
+    )
     return {
         "schema_version": 1,
         "run_state": run_state,
@@ -529,6 +545,7 @@ def aggregate_continuous_run(
             **explicit_terminal_counts,
             "missing_or_incomplete": len(missing),
         },
+        "current_surface_qc_warning_counts": dict(sorted(qc_warning_counts.items())),
         "current_surface_missing_or_incomplete_files": missing,
         "recordings": recording_rows,
         "stage_runtime": stage_runtime,
@@ -606,6 +623,7 @@ def markdown_summary(aggregate: Mapping[str, Any]) -> str:
         f"- Stopped: {counts.get('stopped', 0)}",
         f"- Failed: {counts.get('failed', 0)}",
         f"- Missing or incomplete: {counts.get('missing_or_incomplete', 0)}",
+        f"- QC warnings: {aggregate.get('current_surface_qc_warning_counts', {})}",
         "",
         "## Validation",
         "",
@@ -624,12 +642,12 @@ def markdown_summary(aggregate: Mapping[str, Any]) -> str:
         "",
         "## Per recording",
         "",
-        "| File | Status | Global bads | Interpolated | Reference sources | ICA rank | Proposals |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+        "| File | Status | Completion class | Global bads | Interpolated | Reference sources | ICA rank | Proposals |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in aggregate["recordings"]:
         lines.append(
-            f"| {row['source_filename']} | {row['status']} | {row['accepted_global_bad_count']} | "
+            f"| {row['source_filename']} | {row['status']} | {row['completion_class']} | {row['accepted_global_bad_count']} | "
             f"{row['interpolation_count']} | {row['reference_source_count']} | "
             f"{row['ica_rank']} | {row['ica_proposal_count']} |"
         )
@@ -760,6 +778,12 @@ def reopen_current_surface_derivatives(
             {
                 "source_filename": filename,
                 "terminal_status": manifest.get("status"),
+                "completion_class": manifest.get(
+                    "completion_class", manifest.get("status")
+                ),
+                "qc_warning_codes": [
+                    warning["code"] for warning in manifest.get("qc_warnings", [])
+                ],
                 "valid": not file_errors,
                 "errors": file_errors,
                 "artifacts": artifact_rows,
@@ -1018,7 +1042,7 @@ def run_continuous_surface(
     )
     preflight = (
         validate_production_preflight(repo_root, config, output_root)
-        if surface_mode == "production"
+        if surface_mode in {"production", "production_v2"}
         else {
             "validation_output_root": output_root.as_posix(),
             "recording_concurrency": 1,
@@ -1124,6 +1148,15 @@ def run_continuous_surface(
     def flush_progress(index: int, results: list[dict[str, Any]]) -> None:
         """Atomically flush invocation and aggregate state after every recording."""
 
+        latest = results[-1]
+        elapsed = latest.get("total_elapsed_seconds")
+        elapsed_text = f"{elapsed:.1f}s" if isinstance(elapsed, (int, float)) else "n/a"
+        print(
+            f"[{index}/{len(members)}] {latest['source_filename']}: "
+            f"{latest['status']} ({latest.get('reason', 'completed')}, {elapsed_text})",
+            flush=True,
+        )
+
         atomic_write_json(
             run_dir / "progress.json",
             {
@@ -1190,6 +1223,27 @@ def verify_current_surface(
     surface = build_surface(repo_root, config, surface_mode)
     evidence = reopen_current_surface_derivatives(
         output_root=output_root, raw_root=raw_root, surface=surface, config=config
+    )
+    status_counts = Counter(
+        row["terminal_status"]
+        for row in evidence["recordings"]
+        if "terminal_status" in row
+    )
+    evidence["current_surface_terminal_counts"] = {
+        status: int(status_counts.get(status, 0))
+        for status in ("complete", "stopped", "failed")
+    }
+    evidence["current_surface_terminal_counts"]["missing_or_incomplete"] = (
+        int(surface["surface_size"]) - int(evidence["recording_manifest_count"])
+    )
+    evidence["current_surface_qc_warning_counts"] = dict(
+        sorted(
+            Counter(
+                code
+                for row in evidence["recordings"]
+                for code in row.get("qc_warning_codes", [])
+            ).items()
+        )
     )
     verification_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     verification_path = output_root / "verifications" / f"{verification_id}.json"

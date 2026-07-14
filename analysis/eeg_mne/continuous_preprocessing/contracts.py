@@ -290,13 +290,13 @@ def validate_config(config: Mapping[str, Any]) -> None:
 
     reference = config.get("reference", {})
     _require_equal(reference.get("kind"), "explicit_scalp_average", "reference.kind")
-    _require_equal(reference.get("minimum_usable_scalp_channels"), 23, "reference.minimum_usable_scalp_channels")
+    _require_equal(reference.get("minimum_usable_scalp_channels"), 22, "reference.minimum_usable_scalp_channels")
     _require_equal(reference.get("apply_to_all_32_eeg_targets"), True, "reference.apply_to_all_32_eeg_targets")
 
     interpolation = config.get("interpolation", {})
     _require_equal(interpolation.get("method"), "spherical_spline", "interpolation.method")
     _require_equal(interpolation.get("mastoid_candidates"), False, "interpolation.mastoid_candidates")
-    _require_equal(float(interpolation.get("stop_proportion", 0.0)), 0.25, "interpolation.stop_proportion")
+    _require_equal(float(interpolation.get("warning_proportion", 0.0)), 0.25, "interpolation.warning_proportion")
     _require_equal(interpolation.get("proportion_denominator"), 30, "interpolation.proportion_denominator")
     _require_equal(interpolation.get("reset_bads_after_success"), True, "interpolation.reset_bads_after_success")
 
@@ -348,6 +348,16 @@ def validate_config(config: Mapping[str, Any]) -> None:
     )
     if production_output_root == output_root:
         raise ValueError("Validation and production output roots must be distinct.")
+    production_v2_output_root = str(
+        config.get("paths", {}).get("production_v2_output_root", "")
+    )
+    _require_equal(
+        production_v2_output_root,
+        "_Data/eeg/mne_preprocessing/continuous_v2",
+        "paths.production_v2_output_root",
+    )
+    if len({output_root, production_output_root, production_v2_output_root}) != 3:
+        raise ValueError("Validation, production v1, and production v2 roots must be distinct.")
 
     production = config.get("production_surface", {})
     _require_equal(

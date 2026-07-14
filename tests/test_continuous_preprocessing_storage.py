@@ -28,6 +28,7 @@ from continuous_preprocessing.runner import (  # noqa: E402
     aggregate_continuous_run,
     compare_source_inventories,
     execute_members,
+    output_root_for_mode,
     reopen_current_surface_derivatives,
     snapshot_source_inventory,
 )
@@ -341,6 +342,7 @@ def test_output_root_guard_accepts_only_separate_versioned_namespaces(
     for relative in (
         "_Data/eeg/mne_preprocessing/continuous_validation_v1",
         "_Data/eeg/mne_preprocessing/continuous_v1",
+        "_Data/eeg/mne_preprocessing/continuous_v2",
     ):
         validate_output_root(tmp_path, tmp_path / relative, relative)
     with pytest.raises(ValueError, match="Only the authorized"):
@@ -349,6 +351,17 @@ def test_output_root_guard_accepts_only_separate_versioned_namespaces(
             tmp_path / "_Data/eeg/mne_preprocessing/other",
             "_Data/eeg/mne_preprocessing/other",
         )
+
+
+def test_production_v2_mode_resolves_without_overlapping_preserved_v1() -> None:
+    """Fresh production selects v2 while legacy repair remains rooted in v1."""
+
+    cfg = load_config(CONFIG_PATH)
+    v1, _ = output_root_for_mode(REPO_ROOT, cfg, "production")
+    v2, _ = output_root_for_mode(REPO_ROOT, cfg, "production_v2")
+    assert v1.name == "continuous_v1"
+    assert v2.name == "continuous_v2"
+    assert v1 != v2
 
 
 def test_complete_source_inventory_snapshot_detects_content_and_mtime_change(
@@ -622,7 +635,7 @@ def test_repair_targeting_keeps_id86_and_detector_stops_separate() -> None:
     assert not is_historical_ica_repair_target(
         {"status": "stopped", "stop_or_failure": {"code": "predeclared_id86_component_review_boundary"}}
     )
-    for code in ("accepted_global_bad_proportion_at_or_above_25_percent", "detector_exception"):
+    for code in ("global_bad_proportion_at_or_above_25_percent", "detector_exception"):
         assert not is_historical_ica_repair_target(
             {"status": "stopped", "stop_or_failure": {"code": code}}
         )

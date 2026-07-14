@@ -16,6 +16,7 @@ paths:
   raw_root: _Data/eeg/raw
   output_root: _Data/eeg/mne_preprocessing/continuous_validation_v1
   production_output_root: _Data/eeg/mne_preprocessing/continuous_v1
+  production_v2_output_root: _Data/eeg/mne_preprocessing/continuous_v2
 
 production_surface:
   raw_manifest: _Data/eeg/manifest/raw_eeg_file_manifest.csv
@@ -85,13 +86,13 @@ detector:
 
 reference:
   kind: explicit_scalp_average
-  minimum_usable_scalp_channels: 23
+  minimum_usable_scalp_channels: 22
   apply_to_all_32_eeg_targets: true
 
 interpolation:
   method: spherical_spline
   mastoid_candidates: false
-  stop_proportion: 0.25
+  warning_proportion: 0.25
   proportion_denominator: 30
   reset_bads_after_success: true
 

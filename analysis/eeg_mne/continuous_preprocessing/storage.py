@@ -118,10 +118,11 @@ def validate_output_root(repo_root: Path, output_root: Path, configured_relative
     authorized = {
         "_Data/eeg/mne_preprocessing/continuous_validation_v1",
         "_Data/eeg/mne_preprocessing/continuous_v1",
+        "_Data/eeg/mne_preprocessing/continuous_v2",
     }
     if configured_relative not in authorized:
         raise ValueError(
-            "Only the authorized continuous_validation_v1 or continuous_v1 root is permitted."
+            "Only the authorized continuous_validation_v1, continuous_v1, or continuous_v2 root is permitted."
         )
 
 
@@ -556,6 +557,8 @@ def deterministic_manifest_id(manifest: Mapping[str, Any]) -> str:
         "source": manifest["source"],
         "provenance": manifest["provenance"],
         "status": manifest["status"],
+        "completion_class": manifest.get("completion_class"),
+        "qc_warnings": manifest.get("qc_warnings", []),
         "stop_or_failure": manifest.get("stop_or_failure"),
         "channel_contract": manifest.get("channel_contract"),
         "detector": manifest.get("detector"),

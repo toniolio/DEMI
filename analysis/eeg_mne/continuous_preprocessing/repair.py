@@ -140,7 +140,11 @@ def repair_recording_from_saved_ica(
     source_hash = sha256_file(source_path)
     expected_provenance = recording_provenance(run_provenance, source_hash)
     if manifest.get("repair", {}).get("repair_kind") == REPAIR_KIND:
-        assessment = assess_terminal_result(final_dir, expected_provenance)
+        # A preserved v1 repair remains valid under its recorded provenance;
+        # v2 scientific/configuration hashes must not force mutation of v1.
+        assessment = assess_terminal_result(
+            final_dir, {"fingerprint": manifest["provenance"]["fingerprint"]}
+        )
         if assessment["cache_status"] == "valid" and manifest.get("status") == "complete":
             return {
                 "source_filename": source_path.name,
