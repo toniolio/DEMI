@@ -41,7 +41,11 @@
 
 > Ingram, T. G. J., Hurst, A. J., Solomon, J. P., Stratas, A., & Boe, S. G. (2022). Imagined movement accuracy is strongly associated with drivers of overt movement error and weakly associated with imagery vividness. *Journal of Experimental Psychology: Human Perception and Performance, 48*(12), 1362–1372. https://doi.org/10.1037/xhp0001064
 
-- **EEG:** (**WIP**); manuscript in preparation. The active path includes a saved, resumable continuous-preprocessing validation cohort. It is not a full-recording production run and does not construct epochs or produce active reanalysis results. See [`analysis/eeg_mne/README.md`](analysis/eeg_mne/README.md).
+- **EEG:** (**WIP**); manuscript in preparation. The active path includes
+  versioned, resumable continuous preprocessing from the raw EDF surface.
+  Continuous completion does not establish event or epoch eligibility, and no
+  epoch-construction stage is currently active. See
+  [`analysis/eeg_mne/README.md`](analysis/eeg_mne/README.md).
 
 ## Reproducibility & setup
 

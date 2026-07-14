@@ -26,10 +26,10 @@ submodule are provenance sources rather than active processing entry points.
 
 The tracked workflow now separates scripts 00--12, which provide read-only
 inventory and parameter evidence, from script 13, which implements production
-continuous preprocessing. Script 13 is currently restricted to a small saved
-validation cohort so derivative integrity, runtime, storage, resumability, and
-exception routing can be reviewed before a full-recording run is authorized.
-Epoch construction remains a later, separate stage.
+continuous preprocessing. Script 13 retains a separate small validation
+cohort and an explicit authorized mode for the complete 95-file readable EDF
+surface. These modes share one implementation and write to separate versioned
+roots. Epoch construction remains a later, separate stage.
 
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary

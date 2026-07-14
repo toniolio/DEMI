@@ -2,9 +2,9 @@
 
 The production namespace is `analysis/eeg_mne/continuous_preprocessing/`, with
 the versioned technical configuration in
-`analysis/eeg_mne/continuous_preprocessing_config_v1.yaml`. Script 13 runs a
-small deterministic validation cohort. It is not authorized to process all 95
-recordings.
+`analysis/eeg_mne/continuous_preprocessing_config_v1.yaml`. Script 13 retains a
+small deterministic validation mode and an explicit authorized mode for all 95
+inventoried readable EDF files. Both use the same stages and configuration.
 
 ## Signal contract
 
@@ -40,10 +40,16 @@ automatic post-ICA derivative.
 
 ## Saved derivatives
 
-Outputs are new files below the ignored directory:
+Validation outputs remain below the ignored directory:
 
 ```text
 _Data/eeg/mne_preprocessing/continuous_validation_v1/
+```
+
+Authorized production outputs are separate:
+
+```text
+_Data/eeg/mne_preprocessing/continuous_v1/
 ```
 
 Each published recording directory is atomic and self-contained. Ordinary
@@ -54,9 +60,9 @@ second full continuous copy for every recording; the alternate branch remains
 reconstructible from the immutable EDF, tracked code/configuration, hashes,
 and ICA exclusion ledger.
 
-FIF precision is explicitly `single`, not an implicit default. The validation
-run records observed precision error and projected storage before this becomes
-the long-term full-run contract. Detector tables, component rows, stage
+FIF precision is explicitly `single`, not an implicit default. Validation
+confirmed this as the accepted full-run storage contract. Detector tables,
+component rows, stage
 ledgers, source/config/code/environment hashes, runtime, memory, byte counts,
 and output checksums accompany each signal derivative.
 
@@ -76,9 +82,28 @@ exact cohort filename with `--recording` and add `--force` for an explicit
 focused recomputation; the prior result is preserved rather than silently
 overwritten.
 
+The full production surface requires an explicit flag:
+
+```sh
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings
+```
+
+The selector requires exactly 95 readable rows in the script-00 raw manifest,
+matches them exactly to the raw directory, orders them by parsed recording ID
+then filename, and keeps multiple EDF parts separate. It does not consult event
+or epoch eligibility. Before production it requires at least 40 GiB free and
+an ignored root distinct from validation. Full-surface source hashes, sizes,
+and modification times are recorded before and after each invocation. Current
+aggregate state is atomically refreshed after every attempted recording.
+
+Use `--all-recordings --recording '<exact EDF filename>'` for a bounded
+production smoke and add `--force` only for that exact recording. Use
+`--all-recordings --verify-current` to reopen and independently validate every
+current saved Raw/ICA FIF.
+
 Processing is sequential. A per-recording stop or failure is recorded and the
 driver continues to the next EDF. Raw EDF hashes, sizes, and modification times
-are checked after processing. The driver has no all-recording mode.
+are checked after processing. Production recording concurrency is fixed at one.
 
 ## Current boundary
 

@@ -10,9 +10,9 @@ active processing entry points.
 
 Scripts 00--12 are inspection/evidence scripts. Script 04's historical filename
 notwithstanding, it is a config-driven raw-QC driver and does not preprocess
-signals. Script 13 is the first production continuous-preprocessing driver. It
-currently writes only a compact saved validation cohort; no script constructs
-epochs.
+signals. Script 13 is the production continuous-preprocessing driver. Its
+default validation cohort and explicit all-readable-EDF mode use the same
+pipeline under separate versioned output roots. No script constructs epochs.
 
 ## Environment and local inputs
 
@@ -122,22 +122,43 @@ detector-pool effect. They write local evidence under
 all in-memory signal changes. See
 [`../../docs/eeg_preprocessing_parameter_audit.md`](../../docs/eeg_preprocessing_parameter_audit.md).
 
-### 8. Run the saved continuous-preprocessing validation cohort
+### 8. Run saved continuous preprocessing
 
 ```sh
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py
 ```
 
 The tracked contract is `continuous_preprocessing_config_v1.yaml`; focused
-production modules are under `continuous_preprocessing/`. Results are written
-atomically below
-`_Data/eeg/mne_preprocessing/continuous_validation_v1/`. The driver processes
-one EDF at a time and has no all-recording mode.
+production modules are under `continuous_preprocessing/`. The default command
+writes the separate validation cohort atomically below
+`_Data/eeg/mne_preprocessing/continuous_validation_v1/`.
 
 Use `--max-files 2` for a bounded interruption/resume check. Valid terminal
 recordings are skipped only after source/config/code/environment and artifact
 hashes match. Use `--recording 'demi_01 Data.edf' --force` for an explicit
 focused recomputation; the old result is preserved in local history.
+
+The authorized all-readable-EDF production run is explicit:
+
+```sh
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings
+```
+
+It selects all 95 script-00 inventory rows with `read_status=ok` in stable
+recording-ID/filename order, processes split parts independently, keeps the
+60-Hz branch off, and writes only below
+`_Data/eeg/mne_preprocessing/continuous_v1/`. It requires at least 40 GiB free,
+checks that the production root is ignored and separate from validation, hashes
+the complete raw surface before and after each invocation, and flushes current
+aggregate state after every recording.
+
+Use `--all-recordings --recording 'demi_01 Data.edf'` for a one-file production
+smoke. Add `--force` only with one exact `--recording`. To independently reopen
+and rescan every current production FIF/ICA artifact after a run:
+
+```sh
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings --verify-current
+```
 
 Ordinary results retain one post-ICA continuous FIF plus the ICA object. A
 component-review stop retains the pre-ICA continuous FIF and available ICA
@@ -161,7 +182,7 @@ evidence but no automatic post-ICA file. See
 | 10 | Global bad-channel method comparison | Active parameter evidence |
 | 11 | Line-noise/filter branch comparison | Active parameter evidence |
 | 12 | M1/M2 detector-pool sensitivity | Active parameter evidence |
-| 13 | Saved production continuous preprocessing | Validation cohort only; sequential and resumable |
+| 13 | Saved production continuous preprocessing | Validation and authorized 95-file surfaces; sequential and resumable |
 
 Scripts 00--12 remain evidence/audit programs. Script 13 and later numbered
 continuous scripts belong to production preprocessing. Epoch construction will
@@ -179,10 +200,12 @@ provenance. Public, reproducible implementation boundaries remain tracked in:
   `preprocessing_parameter_audit.py`;
 - the public contract documents under [`../../docs/`](../../docs/).
 
-The accepted continuous-preprocessing stages are implemented for a saved local
-validation cohort. Full-recording production processing still requires a
-separate authorization after validation review. The current workflow does not
-claim an epoch ledger, epochs, time-frequency features, or new EEG results.
+The accepted continuous-preprocessing stages are implemented for both the
+separate validation cohort and the authorized all-readable-EDF continuous
+surface. Continuous success remains independent of event-source availability,
+the accepted 8,905-row candidate surface, and later analytic inclusion. The
+current workflow does not claim an epoch ledger, epochs, time-frequency
+features, or new EEG results.
 
 ## Validation
 
