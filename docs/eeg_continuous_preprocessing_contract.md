@@ -26,7 +26,10 @@ deviation, high-frequency, correlation, SNR, dropout, and RANSAC criteria.
 PSD-only findings remain report-only. Accepted bad scalp channels are excluded
 from the explicit average-reference sources, the reference is applied to all
 32 EEG targets, and accepted bad scalp channels are then interpolated with MNE
-spherical splines. A count of 8/30 or greater is an objective stop.
+spherical splines. More than 25% of the 30-channel surface produces a
+historical-continuity QC warning and continues; the warning is not an event,
+epoch, participant, or analytic inclusion decision. The known 8/30 cases retain
+22 scalp reference sources.
 
 ICA is fit on a separate 1--45 Hz copy with the same line-noise, reference, and
 interpolation surface. The tracked implementation uses rank-aware extended
@@ -48,10 +51,16 @@ Validation outputs remain below the ignored directory:
 _Data/eeg/mne_preprocessing/continuous_validation_v1/
 ```
 
-Authorized production outputs are separate:
+The preserved v1 production outputs remain at:
 
 ```text
 _Data/eeg/mne_preprocessing/continuous_v1/
+```
+
+Fresh authoritative production outputs are written separately to:
+
+```text
+_Data/eeg/mne_preprocessing/continuous_v2/
 ```
 
 Each published recording directory is atomic and self-contained. Ordinary
@@ -84,14 +93,17 @@ exact cohort filename with `--recording` and add `--force` for an explicit
 focused recomputation; the prior result is preserved rather than silently
 overwritten.
 
-The full production surface requires an explicit flag:
+The full authoritative v2 surface requires an explicit flag. For an unattended
+Terminal run with a retained log:
 
 ```sh
-PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings
+mkdir -p _Data/eeg/mne_preprocessing/continuous_v2
+set -o pipefail
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings 2>&1 | tee _Data/eeg/mne_preprocessing/continuous_v2/terminal_run.log
 ```
 
-The bounded artifact-only repair for results stopped by the superseded ICA cap
-is explicit:
+The bounded artifact-only repair remains available only for preserved v1
+provenance/recovery:
 
 ```sh
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings --repair-historical-ica-routing
@@ -112,7 +124,8 @@ aggregate state is atomically refreshed after every attempted recording.
 Use `--all-recordings --recording '<exact EDF filename>'` for a bounded
 production smoke and add `--force` only for that exact recording. Use
 `--all-recordings --verify-current` to reopen and independently validate every
-current saved Raw/ICA FIF.
+current v2 Raw/ICA FIF and print aggregate terminal counts. Rerunning the
+ordinary full command proves unchanged-result skipping.
 
 Processing is sequential. A per-recording stop or failure is recorded and the
 driver continues to the next EDF. Raw EDF hashes, sizes, and modification times

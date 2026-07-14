@@ -138,19 +138,23 @@ recordings are skipped only after source/config/code/environment and artifact
 hashes match. Use `--recording 'demi_01 Data.edf' --force` for an explicit
 focused recomputation; the old result is preserved in local history.
 
-The authorized all-readable-EDF production run is explicit:
+The authoritative v2 all-readable-EDF production run is explicit. The command
+below is suitable for an unattended Terminal session and preserves a terminal
+log while propagating run-level failures through the pipe:
 
 ```sh
-PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings
+mkdir -p _Data/eeg/mne_preprocessing/continuous_v2
+set -o pipefail
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings 2>&1 | tee _Data/eeg/mne_preprocessing/continuous_v2/terminal_run.log
 ```
 
 It selects all 95 script-00 inventory rows with `read_status=ok` in stable
 recording-ID/filename order, processes split parts independently, keeps the
 60-Hz branch off, and writes only below
-`_Data/eeg/mne_preprocessing/continuous_v1/`. It requires at least 40 GiB free,
-checks that the production root is ignored and separate from validation, hashes
-the complete raw surface before and after each invocation, and flushes current
-aggregate state after every recording.
+`_Data/eeg/mne_preprocessing/continuous_v2/`. The validation and v1 production
+roots remain untouched. It requires at least 40 GiB free, checks that all roots
+are ignored and separate, hashes the complete raw surface before and after each
+invocation, and flushes and prints progress after every recording.
 
 Use `--all-recordings --recording 'demi_01 Data.edf'` for a one-file production
 smoke. Add `--force` only with one exact `--recording`. To independently reopen
@@ -160,7 +164,12 @@ and rescan every current production FIF/ICA artifact after a run:
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings --verify-current
 ```
 
-The bounded historical-ICA routing repair reuses the saved pre-ICA FIF, ICA
+Rerun the full command unchanged to prove cache skipping; the final lines print
+invocation and current terminal counts. A successful surface is expected to
+contain 94 complete results, including files 49 and 54_1 marked
+`complete_with_qc_warning`, plus the unchanged ID-86 review stop.
+
+The legacy-v1 historical-ICA routing repair reuses the saved pre-ICA FIF, ICA
 object, rank, scores, and provenance from results stopped by the superseded
 over-two guardrail. It does not rerun earlier preprocessing or ICA fitting:
 
@@ -172,6 +181,11 @@ The active EOG rule reproduces the historical executable behavior: retain the
 score-ranked, deduplicated result returned across HEO and VEO and apply every
 detected component without a numeric cap. ID 86 remains on its explicit review
 route.
+
+The historical interpolation boundary is also preserved. More than 25% of the
+30 scalp channels produces a prominent QC warning and continues through
+reference, interpolation, filtering, ICA, and derivative writing. This is not
+an event, epoch, participant, or analytic eligibility decision.
 
 Ordinary results retain one post-ICA continuous FIF plus the ICA object. A
 component-review stop retains the pre-ICA continuous FIF and available ICA
