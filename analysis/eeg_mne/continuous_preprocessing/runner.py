@@ -26,6 +26,12 @@ from typing import Any, Mapping, Sequence
 from .cohort import select_production_surface, select_validation_cohort
 from .contracts import canonical_json_bytes, load_config, sha256_bytes, sha256_file
 from .pipeline import process_recording
+from .repair import (
+    REPAIR_KIND,
+    compare_completed_manifest_to_historical_rule,
+    is_historical_ica_repair_target,
+    repair_recording_from_saved_ica,
+)
 from .storage import (
     atomic_write_json,
     atomic_write_text,
@@ -813,6 +819,162 @@ def execute_members(
         if progress_callback is not None:
             progress_callback(index, results)
     return results
+
+
+def compare_completed_ica_routing(
+    output_root: Path, members: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    """Run the read-only historical-rule regression over original completes."""
+
+    rows: list[dict[str, Any]] = []
+    for manifest in _load_terminal_manifests(output_root, members):
+        if manifest.get("status") != "complete" or manifest.get("repair"):
+            continue
+        rows.append(
+            compare_completed_manifest_to_historical_rule(
+                Path(manifest["_manifest_path"]).parent
+            )
+        )
+    return {
+        "completed_recordings_checked": len(rows),
+        "set_decision_difference_count": sum(
+            not row["same_selected_set"] for row in rows
+        ),
+        "ordering_only_difference_count": sum(
+            row["same_selected_set"] and not row["same_recorded_order"] for row in rows
+        ),
+        "set_decision_differences": [
+            row for row in rows if not row["same_selected_set"]
+        ],
+        "ordering_only_differences": [
+            row for row in rows if row["same_selected_set"] and not row["same_recorded_order"]
+        ],
+        "rows": rows,
+    }
+
+
+def run_historical_ica_routing_repair(
+    *, repo_root: Path, config_path: Path
+) -> dict[str, Any]:
+    """Repair exactly the superseded over-two ICA stops, sequentially.
+
+    The target set is discovered from current stopped manifests on the first
+    invocation and from the explicit repair marker on unchanged reruns. All 95
+    raw EDFs are hashed before and after, but no EDF is opened through MNE.
+    Progress and current aggregate state are flushed after every recording.
+    """
+
+    config = load_config(config_path)
+    raw_root = (repo_root / config["paths"]["raw_root"]).resolve()
+    output_root, _ = output_root_for_mode(repo_root, config, "production")
+    preflight = validate_production_preflight(repo_root, config, output_root)
+    surface = build_production_surface(repo_root, config)
+    manifests = _load_terminal_manifests(output_root, surface["members"])
+    by_name = {
+        manifest["source"]["source_filename"]: manifest for manifest in manifests
+    }
+    targets = [
+        member
+        for member in surface["members"]
+        if is_historical_ica_repair_target(by_name.get(member["source_filename"], {}))
+    ]
+    if len(targets) != 25:
+        raise RuntimeError(f"Expected the bounded 25-recording repair surface; found {len(targets)}.")
+    regression = compare_completed_ica_routing(output_root, surface["members"])
+    if regression["set_decision_difference_count"]:
+        raise RuntimeError(
+            "Historical ICA rule changes completed exclusion sets; repair aborted before writes."
+        )
+
+    before = snapshot_source_inventory(surface["members"])
+    execution_context = {
+        "surface_mode": "production_historical_ica_artifact_repair",
+        "repair_kind": REPAIR_KIND,
+        "target_count": 25,
+        "recording_concurrency": 1,
+        "earlier_preprocessing_rerun": False,
+        "ica_refit": False,
+    }
+    provenance = run_provenance(
+        repo_root,
+        config,
+        production_code_paths(repo_root),
+        execution_context=execution_context,
+    )
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ") + "__" + provenance["code"]["sha256"][:10]
+    run_dir = output_root / "repair_runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+    atomic_write_json(run_dir / "regression.json", regression, output_root, raw_root)
+    atomic_write_json(run_dir / "source_inventory_before.json", before, output_root, raw_root)
+
+    started = time.perf_counter()
+
+    def processor(member: Mapping[str, Any]) -> dict[str, Any]:
+        return repair_recording_from_saved_ica(
+            Path(member["source_path"]),
+            output_root=output_root,
+            raw_root=raw_root,
+            config=config,
+            run_provenance=provenance,
+        )
+
+    def flush(index: int, results: list[dict[str, Any]]) -> None:
+        current = aggregate_continuous_run(
+            repo_root=repo_root,
+            output_root=output_root,
+            surface=surface,
+            invocation_results=results,
+            run_provenance_data=provenance,
+            not_attempted=[row["source_filename"] for row in targets[index:]],
+            run_started_at=run_id,
+            run_elapsed_seconds=time.perf_counter() - started,
+            run_state="running",
+            preflight=preflight,
+            source_inventory_before=before,
+            source_inventory_after=None,
+        )
+        atomic_write_json(
+            run_dir / "repair_progress.json",
+            {"attempted": index, "target_count": 25, "results": results},
+            output_root,
+            raw_root,
+        )
+        atomic_write_json(run_dir / "run_manifest.json", current, output_root, raw_root)
+        atomic_write_text(run_dir / "run_summary.md", markdown_summary(current), output_root, raw_root)
+
+    results = execute_members(targets, processor, flush)
+    after = snapshot_source_inventory(surface["members"])
+    immutability = compare_source_inventories(before, after)
+    atomic_write_json(run_dir / "source_inventory_after.json", after, output_root, raw_root)
+    atomic_write_json(run_dir / "source_inventory_comparison.json", immutability, output_root, raw_root)
+    aggregate = aggregate_continuous_run(
+        repo_root=repo_root,
+        output_root=output_root,
+        surface=surface,
+        invocation_results=results,
+        run_provenance_data=provenance,
+        not_attempted=[],
+        run_started_at=run_id,
+        run_elapsed_seconds=time.perf_counter() - started,
+        run_state="finalized",
+        preflight=preflight,
+        source_inventory_before=before,
+        source_inventory_after=after,
+    )
+    aggregate.update(
+        {
+            "repair_kind": REPAIR_KIND,
+            "repair_target_count": 25,
+            "regression": regression,
+            "raw_source_immutability": immutability,
+            "run_directory": run_dir.as_posix(),
+        }
+    )
+    atomic_write_json(run_dir / "run_manifest.json", aggregate, output_root, raw_root)
+    atomic_write_text(run_dir / "run_summary.md", markdown_summary(aggregate), output_root, raw_root)
+    if not immutability["unchanged"]:
+        raise RuntimeError("Raw EDF source inventory changed during ICA repair.")
+    return aggregate
 
 
 def run_continuous_surface(

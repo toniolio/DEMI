@@ -34,9 +34,11 @@ Infomax, seed 20260712, fixed relative rank tolerance 1e-6, and fixed 4:1
 fitting decimation (effective 250 Hz for the 1000 Hz DEMI recordings). The
 relative tolerance recognizes the exact average-reference dependency and is
 not tuned by recording. HEO and VEO are scored independently with MNE's fixed
-z-score rule. Zero proposals is valid; more than two proposals stops the
-recording. ID 86 always stops at the component-review boundary without an
-automatic post-ICA derivative.
+z-score rule. Their candidates are combined in descending absolute-score
+order, deduplicated, and all returned components are applied, reproducing the
+historical executable behavior without a numeric cap. An ordinary zero-result
+follows the historical error/stop route. ID 86 always stops at the
+component-review boundary without an automatic post-ICA derivative.
 
 ## Saved derivatives
 
@@ -87,6 +89,17 @@ The full production surface requires an explicit flag:
 ```sh
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings
 ```
+
+The bounded artifact-only repair for results stopped by the superseded ICA cap
+is explicit:
+
+```sh
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings --repair-historical-ica-routing
+```
+
+It validates and reuses the saved pre-ICA FIF, ICA object, rank, scores, and
+hash evidence. Earlier preprocessing and ICA fitting are not repeated, and the
+superseded stopped directory is preserved in local history.
 
 The selector requires exactly 95 readable rows in the script-00 raw manifest,
 matches them exactly to the raw directory, orders them by parsed recording ID

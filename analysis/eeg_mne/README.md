@@ -160,6 +160,19 @@ and rescan every current production FIF/ICA artifact after a run:
 PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings --verify-current
 ```
 
+The bounded historical-ICA routing repair reuses the saved pre-ICA FIF, ICA
+object, rank, scores, and provenance from results stopped by the superseded
+over-two guardrail. It does not rerun earlier preprocessing or ICA fitting:
+
+```bash
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings --repair-historical-ica-routing
+```
+
+The active EOG rule reproduces the historical executable behavior: retain the
+score-ranked, deduplicated result returned across HEO and VEO and apply every
+detected component without a numeric cap. ID 86 remains on its explicit review
+route.
+
 Ordinary results retain one post-ICA continuous FIF plus the ICA object. A
 component-review stop retains the pre-ICA continuous FIF and available ICA
 evidence but no automatic post-ICA file. See

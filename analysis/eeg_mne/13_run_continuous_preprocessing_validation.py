@@ -54,7 +54,9 @@ Use ``--max-files 2`` for a bounded interruption/resume check. Use
 Add ``--force`` only for an explicit focused recomputation; the prior terminal
 result is preserved in local history. Use ``--all-recordings --verify-current``
 to reopen and rescan all current production FIF/ICA artifacts without
-processing signals again.
+processing signals again. The one-time bounded
+``--all-recordings --repair-historical-ica-routing`` mode reuses only the saved
+pre-ICA and ICA artifacts from the 25 superseded over-two guardrail stops.
 """
 
 from __future__ import annotations
@@ -74,6 +76,7 @@ from continuous_preprocessing.contracts import load_config  # noqa: E402
 from continuous_preprocessing.runner import (  # noqa: E402
     build_production_surface,
     build_validation_cohort,
+    run_historical_ica_routing_repair,
     run_continuous_surface,
     verify_current_surface,
 )
@@ -127,6 +130,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Reopen and rescan every current production FIF/ICA artifact.",
     )
+    parser.add_argument(
+        "--repair-historical-ica-routing",
+        action="store_true",
+        help="Repair only the 25 superseded over-two ICA stops from saved artifacts.",
+    )
     return parser.parse_args()
 
 
@@ -136,6 +144,25 @@ def main() -> int:
     args = parse_args()
     config_path = args.config if args.config.is_absolute() else (REPO_ROOT / args.config)
     config = load_config(config_path.resolve())
+    if args.repair_historical_ica_routing:
+        if not args.all_recordings:
+            raise ValueError("--repair-historical-ica-routing requires --all-recordings.")
+        if (
+            args.recording
+            or args.max_files
+            or args.force
+            or args.verify_current
+            or args.list_cohort
+            or args.list_production_surface
+        ):
+            raise ValueError("ICA routing repair cannot be combined with other processing selectors.")
+        aggregate = run_historical_ica_routing_repair(
+            repo_root=REPO_ROOT, config_path=config_path.resolve()
+        )
+        print(f"Repair run directory: {aggregate['run_directory']}")
+        print(f"Invocation counts: {aggregate['invocation_counts']}")
+        print(f"Current surface terminal counts: {aggregate['current_surface_terminal_counts']}")
+        return 0 if aggregate["invocation_counts"].get("failed", 0) == 0 else 1
     if args.list_cohort:
         if args.all_recordings or args.list_production_surface or args.verify_current:
             raise ValueError("--list-cohort cannot be combined with another surface action.")

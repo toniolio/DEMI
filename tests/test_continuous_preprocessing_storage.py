@@ -21,6 +21,7 @@ if str(EEG_DIR) not in sys.path:
 from continuous_preprocessing.contracts import (  # noqa: E402
     ALL_RETAINED_CHANNELS,
     load_config,
+    sha256_file,
 )
 from continuous_preprocessing.cohort import select_production_surface  # noqa: E402
 from continuous_preprocessing.runner import (  # noqa: E402
@@ -30,6 +31,14 @@ from continuous_preprocessing.runner import (  # noqa: E402
     reopen_current_surface_derivatives,
     snapshot_source_inventory,
 )
+from continuous_preprocessing.repair import (  # noqa: E402
+    REPAIR_KIND,
+    SUPERSEDED_STOP_REASON,
+    compare_completed_manifest_to_historical_rule,
+    is_historical_ica_repair_target,
+    repair_recording_from_saved_ica,
+)
+import continuous_preprocessing.repair as repair_module  # noqa: E402
 from continuous_preprocessing.source import apply_channel_types, apply_montage  # noqa: E402
 from continuous_preprocessing.stages import (  # noqa: E402
     apply_fir_filter,
@@ -452,3 +461,197 @@ def test_bounded_production_invocation_is_not_labeled_full_dataset_run(
     assert aggregate["validation"]["full_dataset_run_performed"] is False
     assert aggregate["validation"]["all_surface_members_have_terminal_manifests"] is False
     assert aggregate["current_surface_terminal_counts"]["missing_or_incomplete"] == 95
+
+
+def test_artifact_only_ica_repair_is_atomic_and_preserves_stop_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Repair reuses saved artifacts, publishes atomically, and retains history."""
+
+    output, raw_root = roots(tmp_path)
+    source = raw_root / "demi_03 Data.edf"
+    source.write_bytes(b"immutable-edf")
+    result_dir = output / "recordings" / "demi_03_data"
+    result_dir.mkdir(parents=True)
+    cfg = load_config(CONFIG_PATH)
+    scores = {
+        "candidates_by_eog": {"HEO": [0, 1, 2], "VEO": []},
+        "component_rows": [
+            {
+                "component_index": index,
+                "heo_score": score,
+                "veo_score": 0.0,
+                "automatic_proposal": True,
+                "final_action": "not_applied_exceptional_review",
+                "reason": SUPERSEDED_STOP_REASON,
+            }
+            for index, score in enumerate((0.3, 0.2, 0.1))
+        ],
+    }
+    payloads = {
+        "pre_ica_raw.fif": b"pre",
+        "solution-ica.fif": b"ica",
+        "detector_criteria.json": b"{\"accepted_union\":{},\"detection\":{}}\n",
+        "ica_components.json": json.dumps(
+            {
+                "rank": {"estimated_eeg_rank": 3},
+                "fit": {"method": "infomax"},
+                "scores": scores,
+                "proposal": {},
+                "route": {},
+                "application": {},
+            }
+        ).encode(),
+        "stage_ledger.json": json.dumps(
+            {
+                "overall_status": "stopped",
+                "pipeline_version": "continuous_preprocessing_v1",
+                "stages": [{"stage": f"stage_{index}", "status": "complete"} for index in range(20)],
+            }
+        ).encode(),
+    }
+    for name, payload in payloads.items():
+        (result_dir / name).write_bytes(payload)
+    kinds = {
+        "pre_ica_raw.fif": "pre_ica_continuous",
+        "solution-ica.fif": "ica_solution",
+        "detector_criteria.json": "detector_evidence",
+        "ica_components.json": "ica_component_evidence",
+        "stage_ledger.json": "stage_ledger",
+    }
+    source_stat = source.stat()
+    manifest = {
+        "schema_version": 1,
+        "pipeline_version": "continuous_preprocessing_v1",
+        "status": "stopped",
+        "manifest_id": "old-stop",
+        "source": {
+            "source_filename": source.name,
+            "source_path": source.as_posix(),
+            "source_sha256": sha256_file(source),
+            "source_size_bytes": source_stat.st_size,
+            "source_mtime_ns": source_stat.st_mtime_ns,
+            "sample_count": 100,
+            "sampling_frequency_hz": 250.0,
+        },
+        "provenance": {"fingerprint": "old"},
+        "stop_or_failure": {"code": SUPERSEDED_STOP_REASON},
+        "channel_contract": {},
+        "detector": {},
+        "reference": {},
+        "interpolation": {},
+        "ica": {
+            "rank": {"estimated_eeg_rank": 3},
+            "fit": {"method": "infomax"},
+            "scores": scores,
+            "proposal": {},
+            "route": {},
+            "application": {},
+        },
+        "derivative_contract": {"fif_format": "single"},
+        "artifacts": [
+            {"kind": kinds[name], **artifact_descriptor(result_dir / name, result_dir)}
+            for name in payloads
+        ],
+    }
+    atomic_write_json(result_dir / "manifest.json", manifest, output, raw_root)
+
+    class FakeRaw:
+        n_times = 100
+        info = {"sfreq": 250.0}
+
+    class FakeICA:
+        n_components_ = 3
+        exclude: list[int] = []
+
+        def apply(self, raw, exclude, verbose):
+            self.exclude = list(exclude)
+
+    fake_raw = FakeRaw()
+    fake_ica = FakeICA()
+    monkeypatch.setattr(repair_module.mne.io, "read_raw_fif", lambda *a, **k: fake_raw)
+    monkeypatch.setattr(repair_module.mne.io, "read_raw_edf", lambda *a, **k: pytest.fail("EDF read reran"))
+    monkeypatch.setattr(repair_module.mne.preprocessing, "read_ica", lambda *a, **k: fake_ica)
+    monkeypatch.setattr(repair_module, "validate_saved_raw", lambda *a, **k: {"valid": True})
+    monkeypatch.setattr(repair_module, "validate_saved_ica", lambda *a, **k: {"valid": True})
+
+    def fake_raw_write(raw, path, **kwargs):
+        path.write_bytes(b"post")
+        return {"sha256": sha256_file(path), "size_bytes": path.stat().st_size}
+
+    def fake_ica_write(ica, path, **kwargs):
+        path.write_bytes(json.dumps(ica.exclude).encode())
+        return {"sha256": sha256_file(path), "size_bytes": path.stat().st_size}
+
+    monkeypatch.setattr(repair_module, "write_raw_fif_atomic", fake_raw_write)
+    monkeypatch.setattr(repair_module, "write_ica_atomic", fake_ica_write)
+    run = {
+        "pipeline_version": "continuous_preprocessing_v1",
+        "config_sha256": "new-config",
+        "code": {"sha256": "new-code"},
+        "environment_sha256": "environment",
+        "execution_sha256": "repair",
+    }
+    repaired = repair_recording_from_saved_ica(
+        source,
+        output_root=output,
+        raw_root=raw_root,
+        config=cfg,
+        run_provenance=run,
+    )
+    assert repaired["status"] == "complete"
+    current = json.loads((result_dir / "manifest.json").read_text())
+    assert current["repair"]["repair_kind"] == REPAIR_KIND
+    assert current["repair"]["pyprep_rerun"] is False
+    assert current["repair"]["ica_refit"] is False
+    assert current["ica"]["application"]["final_exclusions"] == [0, 1, 2]
+    assert (result_dir / "post_ica_raw.fif").is_file()
+    assert not (result_dir / "pre_ica_raw.fif").exists()
+    history = list((output / "history").glob("demi_03_data__superseded_ica_rule__*"))
+    assert len(history) == 1
+    assert (history[0] / "pre_ica_raw.fif").is_file()
+    assert not list((output / "recordings").glob(".*ica-repair-incomplete"))
+
+
+def test_repair_targeting_keeps_id86_and_detector_stops_separate() -> None:
+    """Only the removed over-two guardrail enters the bounded repair surface."""
+
+    assert is_historical_ica_repair_target(
+        {"status": "stopped", "stop_or_failure": {"code": SUPERSEDED_STOP_REASON}}
+    )
+    assert not is_historical_ica_repair_target(
+        {"status": "stopped", "stop_or_failure": {"code": "predeclared_id86_component_review_boundary"}}
+    )
+    for code in ("accepted_global_bad_proportion_at_or_above_25_percent", "detector_exception"):
+        assert not is_historical_ica_repair_target(
+            {"status": "stopped", "stop_or_failure": {"code": code}}
+        )
+
+
+def test_completed_recording_regression_compares_sets_separately_from_order(
+    tmp_path: Path,
+) -> None:
+    """A score-order reversal is not misclassified as a signal decision change."""
+
+    result = tmp_path / "demi_01_data"
+    result.mkdir()
+    (result / "manifest.json").write_text(
+        json.dumps(
+            {
+                "source": {"source_filename": "demi_01 Data.edf"},
+                "ica": {"application": {"final_exclusions": [0, 1]}},
+            }
+        )
+    )
+    scores = {
+        "candidates_by_eog": {"HEO": [0], "VEO": [1]},
+        "component_rows": [
+            {"component_index": 0, "heo_score": 0.2, "veo_score": 0.0},
+            {"component_index": 1, "heo_score": 0.0, "veo_score": 0.5},
+        ],
+    }
+    (result / "ica_components.json").write_text(json.dumps({"scores": scores}))
+    comparison = compare_completed_manifest_to_historical_rule(result)
+    assert comparison["same_selected_set"] is True
+    assert comparison["same_recorded_order"] is False
+    assert comparison["signal_rewrite_required"] is False
