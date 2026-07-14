@@ -30,6 +30,7 @@ from continuous_preprocessing.ica import (  # noqa: E402
     decide_component_route,
     estimate_eeg_rank,
     fit_ica,
+    historical_eog_component_order,
     propose_eog_components,
 )
 from continuous_preprocessing.source import (  # noqa: E402
@@ -280,21 +281,29 @@ def test_rank_estimator_recognizes_exact_average_reference_dependency() -> None:
     assert result["tolerance_kind"] == "relative"
 
 
-def test_ordinary_zero_more_than_two_and_id86_component_routes() -> None:
-    """Zero continues, >2 stops, and ID 86 always reaches its review boundary."""
+def test_historical_zero_one_two_many_and_id86_component_routes() -> None:
+    """Historical zero stops, while every nonzero result is applied without a cap."""
 
     zero_scores = component_scores(5, [])
     zero_proposal = propose_eog_components(zero_scores, config())
     zero = decide_component_route(1, zero_scores, zero_proposal, config())
-    assert zero["route"] == "continue_automatic"
+    assert zero["route"] == "stop_for_exceptional_review"
     assert zero["final_exclusions"] == []
-    assert zero["reason"] == "ordinary_zero_component_path"
+    assert zero["reason"] == "historical_no_eog_components_detected"
+
+    for proposed in ([2], [1, 3], [0, 1, 2, 4]):
+        scores = component_scores(5, list(proposed))
+        proposal = propose_eog_components(scores, config())
+        route = decide_component_route(1, scores, proposal, config())
+        assert route["route"] == "continue_automatic"
+        assert set(route["final_exclusions"]) == set(proposed)
+        assert proposal["truncated_or_capped"] is False
 
     many_scores = component_scores(5, [0, 1, 2])
     many_proposal = propose_eog_components(many_scores, config())
     many = decide_component_route(1, many_scores, many_proposal, config())
-    assert many["route"] == "stop_for_exceptional_review"
-    assert many["final_exclusions"] == []
+    assert many["route"] == "continue_automatic"
+    assert many["final_exclusions"] == [2, 1, 0]
 
     id86_scores = component_scores(5, [0])
     id86_proposal = propose_eog_components(id86_scores, config())
@@ -304,28 +313,38 @@ def test_ordinary_zero_more_than_two_and_id86_component_routes() -> None:
     assert id86["final_exclusions"] == []
 
 
-def test_zero_component_application_does_not_reconstruct_or_change_samples() -> None:
-    """The ordinary zero-component path records exclusions without ICA.apply."""
+def test_historical_component_order_ranks_across_eog_and_deduplicates() -> None:
+    """Combined HEO/VEO candidates retain historical score order and all indices."""
+
+    scores = component_scores(6, [])
+    scores["candidates_by_eog"] = {"HEO": [1, 4], "VEO": [1, 3]}
+    scores["component_rows"][1].update({"heo_score": 0.5, "veo_score": 0.8})
+    scores["component_rows"][3]["veo_score"] = -0.7
+    scores["component_rows"][4]["heo_score"] = 0.6
+    assert historical_eog_component_order(scores) == [1, 3, 4]
+    assert propose_eog_components(scores, config())["proposed_components"] == [1, 3, 4]
+
+
+def test_application_uses_every_historically_selected_component_in_order() -> None:
+    """ICA application receives the full deterministic historical list."""
 
     class FakeICA:
         exclude: list[int] = []
-        applied = False
+        applied = None
 
         def apply(self, raw, exclude, verbose):
-            self.applied = True
+            self.applied = list(exclude)
 
     raw = synthetic_typed_montaged_raw()
-    before = raw.get_data().copy()
     fake = FakeICA()
     route = {
         "automatic_application_authorized": True,
-        "final_exclusions": [],
-        "reason": "ordinary_zero_component_path",
+        "final_exclusions": [3, 1, 2],
+        "reason": "historical_all_find_bads_eog_components",
     }
     result = apply_ica_exclusions(fake, raw, route)
-    assert result["zero_component_branch_left_analysis_samples_unchanged"]
-    assert fake.applied is False
-    assert np.array_equal(raw.get_data(), before)
+    assert result["final_exclusions"] == [3, 1, 2]
+    assert fake.applied == [3, 1, 2]
 
 
 def test_production_namespace_contains_no_epoch_construction_api() -> None:

@@ -292,31 +292,65 @@ def score_eog_components(
     }
 
 
+def historical_eog_component_order(scores: Mapping[str, Any]) -> list[int]:
+    """Reproduce historical MNE multi-EOG ranking and deduplication.
+
+    The historical executable called ``find_bads_eog`` once without a channel
+    override. MNE concatenated HEO and VEO findings, ranked occurrences by
+    descending absolute score, and removed duplicate component indices while
+    preserving that rank. The active scorer keeps channel evidence separate;
+    this function reconstructs the historical combined result without a cap.
+    """
+
+    rows = {int(row["component_index"]): row for row in scores["component_rows"]}
+    score_keys = {"HEO": "heo_score", "VEO": "veo_score"}
+    occurrences: list[int] = []
+    occurrence_scores: list[float] = []
+    for channel in EOG_CHANNELS:
+        for component in scores["candidates_by_eog"][channel]:
+            component = int(component)
+            occurrences.append(component)
+            occurrence_scores.append(float(rows[component][score_keys[channel]]))
+    if not occurrences:
+        return []
+    ranked = np.asarray(occurrences, dtype=int)[
+        np.abs(np.asarray(occurrence_scores, dtype=float)).argsort()[::-1]
+    ].tolist()
+    selected: list[int] = []
+    for component in ranked:
+        if component not in selected:
+            selected.append(component)
+    return selected
+
+
 def propose_eog_components(scores: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
-    """Form the fixed union of independently EOG-supported components.
+    """Recover the complete historical EOG-component selection.
 
     Args:
         scores: Output from :func:`score_eog_components`.
         config: Validated complete production configuration.
 
     Returns:
-        Proposal list and maximum-count comparison. This stage deliberately
-        does not apply or route the proposal.
+        All candidates and the score-ranked, deduplicated final list. This
+        stage deliberately does not apply or route the proposal.
 
     Side effects:
         None.
     """
 
-    proposed = sorted(
-        set().union(*(set(indices) for indices in scores["candidates_by_eog"].values()))
-    )
-    maximum = int(config["ica"]["maximum_automatic_eog_components"])
+    del config
+    proposed = historical_eog_component_order(scores)
     return {
-        "proposal_rule": "union_of_fixed_mne_zscore_find_bads_eog_results_for_HEO_and_VEO",
+        "proposal_rule": "historical_mne_find_bads_eog_all_ranked_deduplicated_components",
+        "detected_candidates_by_eog": {
+            channel: [int(index) for index in scores["candidates_by_eog"][channel]]
+            for channel in EOG_CHANNELS
+        },
         "proposed_components": proposed,
         "proposal_count": len(proposed),
-        "maximum_automatic_components": maximum,
-        "within_accepted_maximum": len(proposed) <= maximum,
+        "all_returned_components_selected": True,
+        "truncated_or_capped": False,
+        "ordering": "descending_absolute_eog_score_across_HEO_then_VEO_with_stable_deduplication",
         "zero_component_path": not proposed,
     }
 
@@ -352,21 +386,17 @@ def decide_component_route(
         for row in rows:
             row["final_action"] = "review_required_no_automatic_application"
             row["reason"] = reason
-    elif len(proposed) > int(config["ica"]["maximum_automatic_eog_components"]):
+    elif not proposed:
         route = "stop_for_exceptional_review"
         exclusions = []
-        reason = "more_than_two_automatic_eog_component_proposals"
+        reason = "historical_no_eog_components_detected"
         for row in rows:
             row["final_action"] = "not_applied_exceptional_review"
             row["reason"] = reason
     else:
         route = "continue_automatic"
         exclusions = proposed
-        reason = (
-            "ordinary_zero_component_path"
-            if not proposed
-            else "ordinary_fixed_eog_supported_component_rule"
-        )
+        reason = "historical_all_find_bads_eog_components"
         for row in rows:
             if row["component_index"] in exclusions:
                 row["final_action"] = "exclude"

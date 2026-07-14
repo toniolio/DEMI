@@ -315,8 +315,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
         "eog_threshold": 3.0,
         "eog_score_low_hz": 1.0,
         "eog_score_high_hz": 10.0,
-        "maximum_automatic_eog_components": 2,
-        "ordinary_zero_component_action": "continue_with_zero_exclusions",
+        "component_selection_rule": "historical_all_find_bads_eog_components",
+        "ordinary_zero_component_action": "stop_as_historical_pipeline_error",
         "component_review_exception_ids": [86],
     }
     for key, expected in expected_ica.items():
