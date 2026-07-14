@@ -8,8 +8,8 @@ storage/provenance failures remain failed or incomplete without affecting the
 next recording.
 
 Inputs are one immutable EDF, the tracked configuration, shared run
-provenance, and factual validation-cohort context. Outputs are FIF/JSON files
-only below the authorized ignored validation root. Raw EDFs are re-hashed after
+provenance, and factual continuous-surface context. Outputs are FIF/JSON files
+only below the selected authorized ignored root. Raw EDFs are re-hashed after
 processing. This module never writes EDF, constructs epochs, runs AutoReject,
 computes CSD, changes event eligibility, or decides participant inclusion.
 """
@@ -136,10 +136,13 @@ def _manifest_base(
         "status": status,
         "source": source,
         "provenance": dict(provenance),
-        "validation_cohort_context": dict(selection_context),
+        "continuous_preprocessing_surface_context": dict(selection_context),
         "recording_surface_boundary": {
             "raw_edf_readability": "readable" if source_evidence else "not_confirmed",
-            "continuous_preprocessing_eligibility": "selected_validation_cohort_recording",
+            "continuous_preprocessing_eligibility": selection_context.get(
+                "continuous_preprocessing_eligibility",
+                "selected_validation_cohort_recording",
+            ),
             "continuous_preprocessing_status": status,
             "event_source_availability": selection_context.get(
                 "event_source_availability", "not_available_to_continuous_pipeline"
@@ -315,7 +318,7 @@ def process_recording(
         source_path: Immutable source EDF.
         repo_root: Repository root.
         raw_root: Configured source directory.
-        output_root: Authorized validation derivative root.
+        output_root: Authorized validation or production derivative root.
         config: Validated tracked production configuration.
         run_provenance: Shared config/code/environment provenance.
         selection_context: Deterministic factual cohort-selection evidence.

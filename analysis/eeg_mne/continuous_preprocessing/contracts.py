@@ -338,6 +338,38 @@ def validate_config(config: Mapping[str, Any]) -> None:
         "_Data/eeg/mne_preprocessing/continuous_validation_v1",
         "paths.output_root",
     )
+    production_output_root = str(
+        config.get("paths", {}).get("production_output_root", "")
+    )
+    _require_equal(
+        production_output_root,
+        "_Data/eeg/mne_preprocessing/continuous_v1",
+        "paths.production_output_root",
+    )
+    if production_output_root == output_root:
+        raise ValueError("Validation and production output roots must be distinct.")
+
+    production = config.get("production_surface", {})
+    _require_equal(
+        production.get("raw_manifest"),
+        "_Data/eeg/manifest/raw_eeg_file_manifest.csv",
+        "production_surface.raw_manifest",
+    )
+    _require_equal(
+        production.get("expected_readable_edf_count"),
+        95,
+        "production_surface.expected_readable_edf_count",
+    )
+    _require_equal(
+        production.get("deterministic_order"),
+        "parsed_recording_id_then_source_filename",
+        "production_surface.deterministic_order",
+    )
+    _require_equal(
+        production.get("minimum_free_bytes"),
+        40 * 1024**3,
+        "production_surface.minimum_free_bytes",
+    )
 
 
 def load_config(path: Path) -> dict[str, Any]:

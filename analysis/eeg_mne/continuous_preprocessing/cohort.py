@@ -1,4 +1,4 @@
-"""Deterministic validation-cohort selection from existing technical evidence.
+"""Deterministic continuous-preprocessing surface selection.
 
 The selector uses the already generated detector-audit group labels and
 30-scalp published-criterion counts to choose a compact architecture-validation
@@ -6,10 +6,10 @@ cohort. It includes two ordinary controls, both line-noise comparison files, a
 high-count accepted bad-channel/interpolation case not otherwise selected, and
 the predeclared ID-86 ICA review boundary.
 
-Selection is based on technical QC/audit roles, never scientific outcomes. The
-module does not decide participant inclusion, event/epoch eligibility, or
-whether a recording belongs in an analysis. It reads CSV evidence and raw-file
-names only; it writes nothing.
+Validation selection is based on technical QC/audit roles. Production
+selection is the complete inventoried MNE-readable EDF surface. Neither mode
+uses scientific outcomes, event/epoch eligibility, or participant inclusion.
+The module reads CSV evidence and raw-file names only; it writes nothing.
 """
 
 from __future__ import annotations
@@ -219,5 +219,127 @@ def select_validation_cohort(
                 "size_bytes": path.stat().st_size,
             }
             for path in evidence_paths
+        ],
+    }
+
+
+def select_production_surface(
+    *,
+    raw_root: Path,
+    raw_manifest_path: Path,
+    expected_readable_count: int,
+) -> dict[str, Any]:
+    """Select every inventoried readable EDF in a stable numeric/file order.
+
+    Args:
+        raw_root: Local immutable EDF directory.
+        raw_manifest_path: Existing one-row-per-EDF inventory from script 00.
+        expected_readable_count: Accepted fail-closed count for this run.
+
+    Returns:
+        Exact ordered production surface and inventory provenance. Split parts
+        remain separate members. Event and scientific eligibility do not gate
+        membership.
+
+    Side effects:
+        Reads one local CSV and inspects raw-file paths. Writes nothing.
+    """
+
+    manifest = pd.read_csv(raw_manifest_path)
+    required = {
+        "source_filename",
+        "file_path",
+        "file_role",
+        "split_part",
+        "read_status",
+        "participant_id",
+    }
+    if not required.issubset(manifest.columns):
+        raise ValueError(f"Raw EDF manifest lacks columns: {required - set(manifest.columns)}")
+    if manifest["source_filename"].duplicated().any():
+        duplicates = sorted(
+            manifest.loc[manifest["source_filename"].duplicated(False), "source_filename"]
+            .astype(str)
+            .unique()
+        )
+        raise ValueError(f"Raw EDF manifest contains duplicate filenames: {duplicates}")
+
+    readable = manifest.loc[manifest["read_status"].eq("ok")].copy()
+    if len(readable) != expected_readable_count:
+        raise ValueError(
+            "Readable EDF inventory count changed: "
+            f"expected={expected_readable_count}, observed={len(readable)}"
+        )
+    if len(manifest) != expected_readable_count:
+        unreadable = manifest.loc[~manifest["read_status"].eq("ok"), "source_filename"].tolist()
+        raise ValueError(
+            "The accepted production surface expects exactly 95 inventoried rows, all readable; "
+            f"total={len(manifest)}, unreadable={unreadable}"
+        )
+
+    manifest_names = set(readable["source_filename"].astype(str))
+    raw_names = {path.name for path in raw_root.glob("*.edf") if path.is_file()}
+    if manifest_names != raw_names:
+        raise ValueError(
+            "Raw directory and readable inventory disagree: "
+            f"missing_from_raw={sorted(manifest_names - raw_names)}, "
+            f"unmanifested_raw={sorted(raw_names - manifest_names)}"
+        )
+
+    readable["sort_recording_id"] = readable["source_filename"].map(parse_recording_id)
+    readable = readable.sort_values(
+        ["sort_recording_id", "source_filename"], kind="stable"
+    ).reset_index(drop=True)
+
+    members: list[dict[str, Any]] = []
+    for order, row in enumerate(readable.itertuples(index=False), start=1):
+        filename = str(row.source_filename)
+        path = raw_root / filename
+        expected_relative = (Path("_Data") / "eeg" / "raw" / filename).as_posix()
+        if str(row.file_path) != expected_relative:
+            raise ValueError(
+                f"Manifest path conflict for {filename}: expected {expected_relative}, "
+                f"found {row.file_path}"
+            )
+        if not path.is_file():
+            raise FileNotFoundError(f"Inventoried production EDF is missing: {path}")
+        split_part = None if pd.isna(row.split_part) else int(row.split_part)
+        members.append(
+            {
+                "order": order,
+                "source_filename": filename,
+                "source_path": path.as_posix(),
+                "recording_id": int(row.sort_recording_id),
+                "file_role": str(row.file_role),
+                "split_part": split_part,
+                "inventory_read_status": str(row.read_status),
+                "continuous_preprocessing_eligibility": (
+                    "authorized_all_inventoried_readable_edf_surface"
+                ),
+                "event_source_availability": "not_consumed_by_continuous_pipeline",
+                "event_or_epoch_status_used_for_selection": False,
+                "scientific_outcome_used_for_selection": False,
+                "successful_continuous_preprocessing_implies_epoch_eligibility": False,
+            }
+        )
+
+    return {
+        "schema_version": 1,
+        "surface_kind": "authorized_all_inventoried_readable_edfs_v1",
+        "surface_size": len(members),
+        "expected_readable_edf_count": expected_readable_count,
+        "selection_algorithm": "parsed_recording_id_then_source_filename",
+        "process_split_parts_independently": True,
+        "selection_uses_event_or_epoch_eligibility": False,
+        "selection_uses_scientific_outcomes": False,
+        "selection_changes_participant_inclusion": False,
+        "successful_continuous_preprocessing_implies_analytic_eligibility": False,
+        "members": members,
+        "evidence_files": [
+            {
+                "path": raw_manifest_path.as_posix(),
+                "sha256": sha256_file(raw_manifest_path),
+                "size_bytes": raw_manifest_path.stat().st_size,
+            }
         ],
     }

@@ -119,6 +119,17 @@ def test_accepted_detector_reference_and_target_channel_contract() -> None:
     assert set(MASTOID_CHANNELS).issubset(EEG_TARGET_CHANNELS)
 
 
+def test_validation_and_authorized_production_output_contracts_are_separate() -> None:
+    """One tracked config owns distinct validation and 95-file production roots."""
+
+    cfg = config()
+    assert cfg["paths"]["output_root"].endswith("continuous_validation_v1")
+    assert cfg["paths"]["production_output_root"].endswith("continuous_v1")
+    assert cfg["paths"]["output_root"] != cfg["paths"]["production_output_root"]
+    assert cfg["production_surface"]["expected_readable_edf_count"] == 95
+    assert cfg["production_surface"]["minimum_free_bytes"] == 40 * 1024**3
+
+
 def test_required_channels_fail_on_missing_duplicate_unexpected_or_reorder() -> None:
     """Source validation fails closed on every required-channel conflict."""
 

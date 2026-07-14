@@ -1,8 +1,8 @@
 """Atomic derivative storage, ledgers, validation, and cache provenance.
 
-This module implements the saved-derivative contract for the DEMI continuous
-validation cohort. It writes only new files below the configured ignored
-validation root, publishes each recording directory atomically, preserves
+This module implements the saved-derivative contract for DEMI continuous
+preprocessing. It writes only new files below one configured ignored,
+versioned root, publishes each recording directory atomically, preserves
 interrupted/stale/superseded directories in local history, and validates all
 terminal artifacts before they may be skipped on a later run.
 
@@ -98,7 +98,7 @@ def parse_recording_id(source_filename: str) -> int:
 
 
 def validate_output_root(repo_root: Path, output_root: Path, configured_relative: str) -> None:
-    """Require the exact ignored versioned validation output directory.
+    """Require one exact authorized ignored versioned output directory.
 
     Args:
         repo_root: Repository root.
@@ -115,8 +115,14 @@ def validate_output_root(repo_root: Path, output_root: Path, configured_relative
     expected = (repo_root / configured_relative).resolve()
     if output_root.resolve() != expected:
         raise ValueError(f"Output root must be exactly {expected}; found {output_root.resolve()}.")
-    if configured_relative != "_Data/eeg/mne_preprocessing/continuous_validation_v1":
-        raise ValueError("Only the authorized continuous_validation_v1 root is permitted.")
+    authorized = {
+        "_Data/eeg/mne_preprocessing/continuous_validation_v1",
+        "_Data/eeg/mne_preprocessing/continuous_v1",
+    }
+    if configured_relative not in authorized:
+        raise ValueError(
+            "Only the authorized continuous_validation_v1 or continuous_v1 root is permitted."
+        )
 
 
 def validate_derivative_path(path: Path, output_root: Path, raw_root: Path) -> None:
@@ -124,7 +130,7 @@ def validate_derivative_path(path: Path, output_root: Path, raw_root: Path) -> N
 
     Args:
         path: Proposed output file.
-        output_root: Authorized versioned validation root.
+        output_root: Authorized versioned validation or production root.
         raw_root: Immutable source EDF root.
 
     Returns:
@@ -140,7 +146,7 @@ def validate_derivative_path(path: Path, output_root: Path, raw_root: Path) -> N
     if resolved == raw or raw in resolved.parents:
         raise ValueError(f"Derivative path may not be inside the raw EDF directory: {path}")
     if resolved != root and root not in resolved.parents:
-        raise ValueError(f"Derivative path escapes the authorized validation root: {path}")
+        raise ValueError(f"Derivative path escapes the authorized output root: {path}")
     if resolved.suffix.lower() == ".edf":
         raise ValueError("Writing repaired or derived EDF files is prohibited.")
     lowered = resolved.name.lower()
@@ -182,7 +188,7 @@ def atomic_write_text(path: Path, value: str, output_root: Path, raw_root: Path)
     Args:
         path: Final text path.
         value: Complete UTF-8 text.
-        output_root: Authorized validation root.
+        output_root: Authorized output root.
         raw_root: Immutable source root.
 
     Returns:
@@ -504,12 +510,14 @@ def run_provenance(
     repo_root: Path,
     config: Mapping[str, Any],
     code_paths: Sequence[Path],
+    execution_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build config/code/environment hashes shared by every cohort recording."""
+    """Build config/code/environment hashes shared by every selected recording."""
 
     environment = software_environment()
     code = code_provenance(repo_root, code_paths)
     git = git_evidence(repo_root)
+    execution = dict(execution_context or {})
     return {
         "pipeline_version": PIPELINE_VERSION,
         "config_path": config["_provenance"]["path"],
@@ -517,6 +525,8 @@ def run_provenance(
         "code": code,
         "environment": environment,
         "environment_sha256": sha256_bytes(canonical_json_bytes(environment)),
+        "execution": execution,
+        "execution_sha256": sha256_bytes(canonical_json_bytes(execution)),
         "git": git,
     }
 
@@ -530,6 +540,9 @@ def recording_provenance(run: Mapping[str, Any], source_sha256: str) -> dict[str
         "config_sha256": run["config_sha256"],
         "code_sha256": run["code"]["sha256"],
         "environment_sha256": run["environment_sha256"],
+        "execution_sha256": run.get(
+            "execution_sha256", sha256_bytes(canonical_json_bytes({}))
+        ),
     }
     return {**stable, "fingerprint": sha256_bytes(canonical_json_bytes(stable))}
 

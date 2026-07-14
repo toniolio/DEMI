@@ -15,6 +15,13 @@ safety:
 paths:
   raw_root: _Data/eeg/raw
   output_root: _Data/eeg/mne_preprocessing/continuous_validation_v1
+  production_output_root: _Data/eeg/mne_preprocessing/continuous_v1
+
+production_surface:
+  raw_manifest: _Data/eeg/manifest/raw_eeg_file_manifest.csv
+  expected_readable_edf_count: 95
+  deterministic_order: parsed_recording_id_then_source_filename
+  minimum_free_bytes: 42949672960
 
 channels:
   detector_source_channels:

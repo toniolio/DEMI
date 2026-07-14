@@ -9,6 +9,7 @@ from pathlib import Path
 
 import mne
 import numpy as np
+import pandas as pd
 import pytest
 
 
@@ -21,7 +22,13 @@ from continuous_preprocessing.contracts import (  # noqa: E402
     ALL_RETAINED_CHANNELS,
     load_config,
 )
-from continuous_preprocessing.runner import execute_members  # noqa: E402
+from continuous_preprocessing.cohort import select_production_surface  # noqa: E402
+from continuous_preprocessing.runner import (  # noqa: E402
+    compare_source_inventories,
+    execute_members,
+    reopen_current_surface_derivatives,
+    snapshot_source_inventory,
+)
 from continuous_preprocessing.source import apply_channel_types, apply_montage  # noqa: E402
 from continuous_preprocessing.stages import (  # noqa: E402
     apply_fir_filter,
@@ -37,6 +44,7 @@ from continuous_preprocessing.storage import (  # noqa: E402
     deterministic_manifest_id,
     recording_provenance,
     validate_derivative_path,
+    validate_output_root,
     validate_saved_raw,
     write_raw_fif_atomic,
 )
@@ -263,3 +271,151 @@ def test_deterministic_manifest_id_ignores_runtime_and_output_container_noise() 
     changed["runtime"]["total_elapsed_seconds"] = 999.0
     changed["artifacts"] = [{"sha256": "second-output"}]
     assert deterministic_manifest_id(manifest) == deterministic_manifest_id(changed)
+
+
+def test_production_surface_uses_all_readable_inventory_rows_in_stable_order(
+    tmp_path: Path,
+) -> None:
+    """Production selection keeps split parts separate and ignores event eligibility."""
+
+    raw_root = tmp_path / "_Data" / "eeg" / "raw"
+    raw_root.mkdir(parents=True)
+    filenames = [
+        "demi_54_2 Data.edf",
+        "demi_02 Data.edf",
+        "demi_54_1 Data.edf",
+    ]
+    for filename in filenames:
+        (raw_root / filename).write_bytes(b"synthetic-edf")
+    manifest_path = tmp_path / "raw_eeg_file_manifest.csv"
+    pd.DataFrame(
+        [
+            {
+                "source_filename": filename,
+                "file_path": f"_Data/eeg/raw/{filename}",
+                "file_role": "split_part" if "54_" in filename else "single",
+                "split_part": (
+                    int(filename.split("_")[2].split()[0]) if "54_" in filename else None
+                ),
+                "read_status": "ok",
+                "participant_id": 54 if "54_" in filename else 2,
+            }
+            for filename in filenames
+        ]
+    ).to_csv(manifest_path, index=False)
+
+    surface = select_production_surface(
+        raw_root=raw_root,
+        raw_manifest_path=manifest_path,
+        expected_readable_count=3,
+    )
+    assert [row["source_filename"] for row in surface["members"]] == [
+        "demi_02 Data.edf",
+        "demi_54_1 Data.edf",
+        "demi_54_2 Data.edf",
+    ]
+    assert [row["split_part"] for row in surface["members"]] == [None, 1, 2]
+    assert surface["process_split_parts_independently"] is True
+    assert surface["selection_uses_event_or_epoch_eligibility"] is False
+    assert all(
+        not row["successful_continuous_preprocessing_implies_epoch_eligibility"]
+        for row in surface["members"]
+    )
+
+
+def test_output_root_guard_accepts_only_separate_versioned_namespaces(
+    tmp_path: Path,
+) -> None:
+    """The validation and production roots are exact; arbitrary roots fail closed."""
+
+    for relative in (
+        "_Data/eeg/mne_preprocessing/continuous_validation_v1",
+        "_Data/eeg/mne_preprocessing/continuous_v1",
+    ):
+        validate_output_root(tmp_path, tmp_path / relative, relative)
+    with pytest.raises(ValueError, match="Only the authorized"):
+        validate_output_root(
+            tmp_path,
+            tmp_path / "_Data/eeg/mne_preprocessing/other",
+            "_Data/eeg/mne_preprocessing/other",
+        )
+
+
+def test_complete_source_inventory_snapshot_detects_content_and_mtime_change(
+    tmp_path: Path,
+) -> None:
+    """Run-level raw immutability compares hash, size, path, and timestamp."""
+
+    source = tmp_path / "demi_01 Data.edf"
+    source.write_bytes(b"before")
+    members = [{"order": 1, "source_filename": source.name, "source_path": source.as_posix()}]
+    before = snapshot_source_inventory(members)
+    unchanged = snapshot_source_inventory(members)
+    assert compare_source_inventories(before, unchanged)["unchanged"] is True
+    source.write_bytes(b"after-with-different-size")
+    after = snapshot_source_inventory(members)
+    comparison = compare_source_inventories(before, after)
+    assert comparison["unchanged"] is False
+    assert comparison["changed_files"][0]["source_filename"] == source.name
+
+
+def test_execution_namespace_changes_recording_cache_fingerprint() -> None:
+    """Validation and production execution contexts cannot share cache identity."""
+
+    base_run = {
+        "pipeline_version": "continuous_preprocessing_v1",
+        "config_sha256": "config",
+        "code": {"sha256": "code"},
+        "environment_sha256": "environment",
+        "execution_sha256": "validation",
+    }
+    validation = recording_provenance(base_run, "source")
+    production_run = {**base_run, "execution_sha256": "production"}
+    production = recording_provenance(production_run, "source")
+    assert validation["fingerprint"] != production["fingerprint"]
+
+
+def test_current_surface_reopen_verifier_rescans_saved_raw(tmp_path: Path) -> None:
+    """Post-run verification reopens current signal FIFs independently."""
+
+    output, raw_root = roots(tmp_path)
+    result_dir = output / "recordings" / "demi_01_data"
+    result_dir.mkdir(parents=True)
+    raw, cfg = prepared_raw()
+    written = write_raw_fif_atomic(
+        raw,
+        result_dir / "post_ica_raw.fif",
+        fif_format="single",
+        output_root=output,
+        raw_root=raw_root,
+    )
+    manifest = {
+        "status": "complete",
+        "source": {
+            "sample_count": int(raw.n_times),
+            "sampling_frequency_hz": float(raw.info["sfreq"]),
+        },
+        "ica": {"application": {"final_exclusions": []}},
+        "artifacts": [
+            {
+                "kind": "post_ica_continuous",
+                "relative_path": "post_ica_raw.fif",
+                "sha256": written["sha256"],
+                "size_bytes": written["size_bytes"],
+            }
+        ],
+    }
+    atomic_write_json(result_dir / "manifest.json", manifest, output, raw_root)
+    surface = {
+        "surface_kind": "synthetic",
+        "surface_size": 1,
+        "members": [{"source_filename": "demi_01 Data.edf"}],
+    }
+    verification = reopen_current_surface_derivatives(
+        output_root=output,
+        raw_root=raw_root,
+        surface=surface,
+        config=cfg,
+    )
+    assert verification["continuous_raw_artifact_count"] == 1
+    assert verification["all_current_fif_and_ica_artifacts_reopened_and_valid"]
