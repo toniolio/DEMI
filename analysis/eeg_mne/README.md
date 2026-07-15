@@ -167,7 +167,7 @@ PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preproc
 Rerun the full command unchanged to prove cache skipping; the final lines print
 invocation and current terminal counts. A successful surface is expected to
 contain 94 complete results, including files 49 and 54_1 marked
-`complete_with_qc_warning`, plus the unchanged ID-86 review stop.
+`complete_with_qc_warning`, plus the accepted ID-86 historical ICA stop.
 
 The legacy-v1 historical-ICA routing repair reuses the saved pre-ICA FIF, ICA
 object, rank, scores, and provenance from results stopped by the superseded
@@ -179,8 +179,8 @@ PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preproc
 
 The active EOG rule reproduces the historical executable behavior: retain the
 score-ranked, deduplicated result returned across HEO and VEO and apply every
-detected component without a numeric cap. ID 86 remains on its explicit review
-route.
+detected component without a numeric cap. ID 86 remains on its accepted
+historical-stop route.
 
 The historical interpolation boundary is also preserved. More than 25% of the
 30 scalp channels produces a prominent QC warning and continues through
