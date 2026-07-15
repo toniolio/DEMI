@@ -2,17 +2,19 @@
 
 This is the active EEG reanalysis path. It starts from raw EDF recordings and
 provides inventory, frozen-behaviour linkage, event evidence, descriptive
-raw-channel QC, preprocessing-parameter audits, and a versioned production
-continuous-preprocessing implementation. The earlier EEG/GAM code in
+raw-channel QC, preprocessing-parameter audits, completed versioned continuous
+preprocessing, and an accepted-policy event/epoch eligibility ledger. The
+earlier EEG/GAM code in
 [`../../_Scripts/`](../../_Scripts/README.md)
 and the pinned external preprocessing submodule are historical evidence, not
 active processing entry points.
 
 Scripts 00--12 are inspection/evidence scripts. Script 04's historical filename
 notwithstanding, it is a config-driven raw-QC driver and does not preprocess
-signals. Script 13 is the production continuous-preprocessing driver. Its
-default validation cohort and explicit all-readable-EDF mode use the same
-pipeline under separate versioned output roots. No script constructs epochs.
+signals. Script 13 is the completed production continuous-preprocessing driver.
+Script 14 joins the accepted event-policy surface to continuous provenance and
+records eligibility/readiness statuses without opening signal data. No script
+constructs epochs.
 
 ## Environment and local inputs
 
@@ -190,6 +192,20 @@ component-review stop retains the pre-ICA continuous FIF and available ICA
 evidence but no automatic post-ICA file. See
 [`../../docs/eeg_continuous_preprocessing_contract.md`](../../docs/eeg_continuous_preprocessing_contract.md).
 
+### 9. Build the accepted event/epoch eligibility ledger
+
+```sh
+PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/14_build_event_epoch_eligibility_ledger.py
+```
+
+Script 14 consumes the accepted local event policy, corrected selected-event
+evidence, explicit identity/source contracts, and continuous-v2 manifests. It
+writes a versioned local row-level ledger and review summaries below
+`_Data/eeg/event_epoch_eligibility_v1/`. The ledger reproduces the 8,905-row
+primary and 8,896-row strict-clean-only event-policy surfaces and keeps event
+candidacy, continuous availability, post-ICA availability, and future epoch
+readiness distinct. It does not create epochs or decide analytic inclusion.
+
 ## Script index
 
 | Script | Current role | Status |
@@ -207,11 +223,12 @@ evidence but no automatic post-ICA file. See
 | 10 | Global bad-channel method comparison | Active parameter evidence |
 | 11 | Line-noise/filter branch comparison | Active parameter evidence |
 | 12 | M1/M2 detector-pool sensitivity | Active parameter evidence |
-| 13 | Saved production continuous preprocessing | Validation and authorized 95-file surfaces; sequential and resumable |
+| 13 | Saved production continuous preprocessing | Complete: 94 ordinary completions plus the accepted ID-86 stop |
+| 14 | Accepted event/epoch eligibility ledger | Complete; no epochs constructed |
 
-Scripts 00--12 remain evidence/audit programs. Script 13 and later numbered
-continuous scripts belong to production preprocessing. Epoch construction will
-use a later separate namespace and authorization.
+Scripts 00--12 remain evidence/audit programs. Script 13 owns production
+continuous preprocessing, and script 14 owns the policy ledger. Epoch
+construction will use a later separate namespace and authorization.
 
 ## Scientific-policy boundary and stopping point
 
@@ -225,12 +242,12 @@ provenance. Public, reproducible implementation boundaries remain tracked in:
   `preprocessing_parameter_audit.py`;
 - the public contract documents under [`../../docs/`](../../docs/).
 
-The accepted continuous-preprocessing stages are implemented for both the
-separate validation cohort and the authorized all-readable-EDF continuous
-surface. Continuous success remains independent of event-source availability,
-the accepted 8,905-row candidate surface, and later analytic inclusion. The
-current workflow does not claim an epoch ledger, epochs, time-frequency
-features, or new EEG results.
+The accepted continuous-preprocessing and event/epoch eligibility-ledger stages
+are complete. Continuous success remains independent of event-source
+availability, the accepted 8,905-row candidate surface, and later analytic
+inclusion. The current workflow does not claim constructed epochs,
+time-frequency features, or new EEG results. Epoch construction is the next
+separate authorization boundary.
 
 ## Validation
 
@@ -243,6 +260,7 @@ git status --short
 ```
 
 Focused contracts are covered by `tests/test_event_source_contract.py`,
+`tests/test_event_epoch_eligibility.py`,
 `tests/test_channel_qc.py`, `tests/test_montage_contract.py`,
 `tests/test_preprocessing_parameter_audit.py`, and
 `tests/test_raw_qc_guardrails.py`. Production continuous contracts, ICA routing,

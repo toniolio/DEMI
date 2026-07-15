@@ -26,10 +26,11 @@ submodule are provenance sources rather than active processing entry points.
 
 The tracked workflow now separates scripts 00--12, which provide read-only
 inventory and parameter evidence, from script 13, which implements production
-continuous preprocessing. Script 13 retains a separate small validation
-cohort and an explicit authorized mode for the complete 95-file readable EDF
-surface. These modes share one implementation and write to separate versioned
-roots. Epoch construction remains a later, separate stage.
+continuous preprocessing, and script 14, which implements the accepted
+event/epoch eligibility ledger. Continuous preprocessing is complete for the
+95-file readable-EDF surface. The ledger records the accepted primary and
+strict-clean event-policy surfaces while keeping continuous-derivative status
+separate. Epoch construction remains the next separately authorized stage.
 
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary
