@@ -93,14 +93,15 @@ exact cohort filename with `--recording` and add `--force` for an explicit
 focused recomputation; the prior result is preserved rather than silently
 overwritten.
 
-The full authoritative v2 surface requires an explicit flag. For an unattended
-Terminal run with a retained log:
+The full authoritative v2 surface uses the tracked unattended launcher:
 
 ```sh
-mkdir -p _Data/eeg/mne_preprocessing/continuous_v2
-set -o pipefail
-PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings 2>&1 | tee _Data/eeg/mne_preprocessing/continuous_v2/terminal_run.log
+tools/run_continuous_v2.sh
 ```
+
+The helper resolves the repository root, uses unbuffered Python, invokes the
+95-file `--all-recordings` mode under `caffeinate`, and preserves the Python
+pipeline status through `tee` with Bash `pipefail`.
 
 The bounded artifact-only repair remains available only for preserved v1
 provenance/recovery:

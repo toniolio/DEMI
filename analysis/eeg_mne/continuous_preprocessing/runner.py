@@ -1097,6 +1097,10 @@ def run_continuous_surface(
     )
 
     attempted_names = {member["source_filename"] for member in members}
+    invocation_position = {
+        member["source_filename"]: index
+        for index, member in enumerate(members, start=1)
+    }
     not_attempted = [
         member["source_filename"]
         for member in surface["members"]
@@ -1105,6 +1109,12 @@ def run_continuous_surface(
 
     def processor(member: Mapping[str, Any]) -> dict[str, Any]:
         """Process one selected member with the shared fixed run state."""
+
+        index = invocation_position[member["source_filename"]]
+        print(
+            f"[{index}/{len(members)}] Starting {member['source_filename']}",
+            flush=True,
+        )
 
         return process_recording(
             Path(member["source_path"]),

@@ -138,14 +138,12 @@ recordings are skipped only after source/config/code/environment and artifact
 hashes match. Use `--recording 'demi_01 Data.edf' --force` for an explicit
 focused recomputation; the old result is preserved in local history.
 
-The authoritative v2 all-readable-EDF production run is explicit. The command
-below is suitable for an unattended Terminal session and preserves a terminal
-log while propagating run-level failures through the pipe:
+The authoritative v2 all-readable-EDF production run uses a self-locating
+launcher that prevents fragile pasted multiline commands, keeps the Mac awake,
+streams progress, and saves a timestamped terminal log:
 
 ```sh
-mkdir -p _Data/eeg/mne_preprocessing/continuous_v2
-set -o pipefail
-PATH="$(pwd)/.venv/bin:$PATH" python3 analysis/eeg_mne/13_run_continuous_preprocessing_validation.py --all-recordings 2>&1 | tee _Data/eeg/mne_preprocessing/continuous_v2/terminal_run.log
+tools/run_continuous_v2.sh
 ```
 
 It selects all 95 script-00 inventory rows with `read_status=ok` in stable
