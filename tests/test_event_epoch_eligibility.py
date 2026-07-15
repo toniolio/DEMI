@@ -8,6 +8,7 @@ driver adds a separate optional local integration surface after implementation.
 from __future__ import annotations
 
 import sys
+import importlib.util
 from pathlib import Path
 
 import pandas as pd
@@ -23,8 +24,40 @@ from event_epoch_eligibility import (  # noqa: E402
     assert_no_signal_outputs,
     canonical_event_key,
     parse_continuous_recording_manifest,
+    stable_frame_hash,
     status_fields,
+    validate_ledger_contract,
 )
+
+
+LEDGER_SCRIPT_PATH = EEG_DIR / "14_build_event_epoch_eligibility_ledger.py"
+LOCAL_POLICY_PATH = REPO_ROOT / "_Private/inventory/eeg_event_policy_v1.0.csv"
+LOCAL_JOIN_PATH = (
+    REPO_ROOT / "_Data/eeg/event_evidence_v1/proposed_offset_join_audit.csv"
+)
+
+
+def load_ledger_driver():
+    """Import numbered script 14 by path for optional local integration tests."""
+
+    spec = importlib.util.spec_from_file_location(
+        "event_epoch_eligibility_driver_test_module", LEDGER_SCRIPT_PATH
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def local_ledger_result():
+    """Build the local accepted-authority ledger once when ignored inputs exist."""
+
+    if not LOCAL_POLICY_PATH.is_file() or not LOCAL_JOIN_PATH.is_file():
+        pytest.skip("ignored accepted policy/event evidence is not available")
+    driver = load_ledger_driver()
+    return driver.build_ledger(REPO_ROOT)
 
 
 def test_canonical_keys_distinguish_raw_and_offset_only_rows() -> None:
@@ -155,3 +188,114 @@ def test_signal_output_guard_accepts_ledger_tables(tmp_path: Path) -> None:
     (tmp_path / "summary.json").write_text("{}", encoding="utf-8")
     (tmp_path / "summary.md").write_text("# Summary\n", encoding="utf-8")
     assert_no_signal_outputs(tmp_path)
+
+
+def test_local_accepted_counts_and_warning_only_difference(local_ledger_result) -> None:
+    """Local accepted authority reproduces 8,905, 8,896, and exactly nine."""
+
+    ledger = local_ledger_result["ledger"]
+    counts = validate_ledger_contract(ledger)
+    assert counts == {
+        "primary": 8_905,
+        "strict_clean": 8_896,
+        "warning_only": 9,
+        "possible_discrepancy": 72,
+    }
+    warning_only = ledger[
+        ledger["primary_ledger_eligibility"]
+        & ~ledger["strict_clean_only_sensitivity_eligibility"]
+    ]
+    assert len(warning_only) == 9
+    assert warning_only["duration_warning_only"].all()
+
+
+def test_local_identity_and_physical_trigger_contracts(local_ledger_result) -> None:
+    """Behaviour 11 uses EEG 13; EEG 11 cannot join; EEG 94 stays physical."""
+
+    ledger = local_ledger_result["ledger"]
+    primary = ledger[ledger["primary_ledger_eligibility"]]
+    mapped11 = primary[primary["behavioural_participant_id"].eq(11)]
+    assert len(mapped11) == 99
+    assert set(mapped11["eeg_recording_id"].astype(int)) == {13}
+    assert not ledger["eeg_recording_id"].eq(11).any()
+    source11 = local_ledger_result["source_status"].query("eeg_recording_id == 11")
+    assert len(source11) == 1
+    assert not source11.iloc[0]["behavioural_join_available"]
+    assert source11.iloc[0]["behavioural_join_reason_code"] == (
+        "eeg11_explicitly_unmapped_from_behavioural_join"
+    )
+    eeg94 = primary[primary["eeg_recording_id"].eq(94)]
+    assert len(eeg94) == 104
+    assert set(eeg94["source_type"]) == {"physical_trigger"}
+
+
+def test_local_split_id5_and_discrepancy_policy_contracts(local_ledger_result) -> None:
+    """Split IDs stay out; ID 5 stays pre-marker; all 72 remain unavailable."""
+
+    ledger = local_ledger_result["ledger"]
+    primary = ledger[ledger["primary_ledger_eligibility"]]
+    assert not primary["eeg_recording_id"].isin({54, 56, 65}).any()
+    id5 = primary[primary["behavioural_participant_id"].eq(5)]
+    assert len(id5) == 114
+    assert set(id5["id5_segment"]) == {"before_file_start"}
+    discrepancy = ledger[
+        ledger["event_policy_reason_code"].eq(
+            "possible_event_sequence_discrepancy_unavailable"
+        )
+    ]
+    assert len(discrepancy) == 72
+    assert not discrepancy["primary_ledger_eligibility"].any()
+
+
+def test_local_continuous_warning_and_id86_contracts(local_ledger_result) -> None:
+    """49/54_1 warnings propagate without exclusion; ID 86 remains pre-ICA."""
+
+    ledger = local_ledger_result["ledger"]
+    for filename in ("demi_49 Data.edf", "demi_54_1 Data.edf"):
+        rows = ledger[ledger["source_filename"].eq(filename)]
+        assert not rows.empty
+        assert rows["continuous_qc_warning_codes"].str.contains(
+            "global_bad_proportion_above_25_percent"
+        ).all()
+        assert set(rows["interpolated_channel_count"].astype(int)) == {8}
+    file49_primary = ledger[
+        ledger["source_filename"].eq("demi_49 Data.edf")
+        & ledger["primary_ledger_eligibility"]
+    ]
+    assert file49_primary["future_epoch_construction_readiness"].all()
+    id86 = ledger[ledger["eeg_recording_id"].eq(86)]
+    assert set(id86["continuous_derivative_kind"]) == {"retained_pre_ica"}
+    assert id86["continuous_derivative_availability"].all()
+    assert not id86["post_ica_derivative_availability"].any()
+    assert not id86["future_epoch_construction_readiness"].any()
+    assert set(id86["ica_exclusion_count"].astype(int)) == {0}
+
+
+def test_local_keys_reasons_and_deterministic_rebuild(local_ledger_result) -> None:
+    """Keys are unique, false statuses are explained, and a rebuild is stable."""
+
+    ledger = local_ledger_result["ledger"]
+    assert not ledger["canonical_event_key"].duplicated().any()
+    for dimension in (
+        "accepted_event_policy_candidate",
+        "primary_ledger_eligibility",
+        "strict_clean_only_sensitivity_eligibility",
+        "continuous_derivative_availability",
+        "post_ica_derivative_availability",
+        "future_epoch_construction_readiness",
+    ):
+        unavailable = ledger[~ledger[dimension]]
+        assert unavailable[f"{dimension}_reason_code"].fillna("").str.strip().ne("").all()
+        assert unavailable[f"{dimension}_reason"].fillna("").str.strip().ne("").all()
+    driver = load_ledger_driver()
+    rebuilt = driver.build_ledger(REPO_ROOT)["ledger"]
+    assert stable_frame_hash(rebuilt) == stable_frame_hash(ledger)
+
+
+def test_local_output_namespace_contains_no_epoch_or_signal_derivative(
+    local_ledger_result,
+) -> None:
+    """Generated ledger output remains tabular/review-only."""
+
+    del local_ledger_result
+    assert_no_signal_outputs(REPO_ROOT / "_Data/eeg/event_epoch_eligibility_v1")

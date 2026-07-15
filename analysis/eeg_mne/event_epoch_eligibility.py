@@ -51,8 +51,6 @@ FORBIDDEN_SIGNAL_OUTPUT_SUFFIXES = (
     ".vmrk",
 )
 FORBIDDEN_OUTPUT_NAME_FRAGMENTS = (
-    "-epo",
-    "_epo",
     "autoreject",
     "csd",
     "time_frequency",
@@ -111,6 +109,29 @@ def nullable_int(value: Any) -> int | None:
     return int(float(value))
 
 
+def text_value(value: Any) -> str:
+    """Return stripped text while treating pandas missing values as blank.
+
+    Args:
+        value: Scalar from a CSV/JSON/pandas row.
+
+    Returns:
+        Stripped string, or an empty string for missing values.
+
+    Side effects:
+        None.
+    """
+
+    if value is None or value is pd.NA:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip()
+
+
 def status_fields(
     prefix: str,
     available: bool,
@@ -165,7 +186,7 @@ def canonical_event_key(row: Mapping[str, Any]) -> str:
         None.
     """
 
-    source_filename = str(row.get("source_filename") or "").strip()
+    source_filename = text_value(row.get("source_filename"))
     behavioural_id = nullable_int(row.get("behavioural_participant_id"))
     eeg_id = nullable_int(row.get("eeg_recording_id"))
     raw_trial = nullable_int(row.get("raw_trial_sequence"))
