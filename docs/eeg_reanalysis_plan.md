@@ -26,12 +26,16 @@ submodule are provenance sources rather than active processing entry points.
 
 The tracked workflow now separates scripts 00--12, which provide read-only
 inventory and parameter evidence, from script 13, which implements production
-continuous preprocessing, and script 14, which implements the accepted
-event/epoch eligibility ledger. Continuous preprocessing is closed: 94 files
-are complete, with one separately retained accepted historical ICA stop. The
-ledger records 8,905 primary, 8,896 strict-clean-only, and 8,798 ordinary
-future-ready rows while keeping continuous-derivative status separate. Epoch
-construction remains the next separately authorized stage.
+continuous preprocessing, script 14, which implements the accepted
+event/epoch eligibility ledger, and script 15, which constructs the accepted
+epoch surface. Continuous preprocessing is closed: 94 files are complete, with
+one separately retained accepted historical ICA stop. The ledger records 8,905
+primary, 8,896 strict-clean-only, and 8,798 ordinary future-ready rows. The
+completed epoch stage contains 8,798 response-onset, 8,798 response-end, and
+8,798 `red_on` support epochs, with 8,789 strict-clean rows identifiable in
+each family. Time-frequency construction, transient-artifact policy, spectral
+normalization, ROI/CSD choices, participant inclusion, and statistical
+analysis remain separate future stages.
 
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary

@@ -3,7 +3,8 @@
 This is the active EEG reanalysis path. It starts from raw EDF recordings and
 provides inventory, frozen-behaviour linkage, event evidence, descriptive
 raw-channel QC, preprocessing-parameter audits, completed versioned continuous
-preprocessing, and an accepted-policy event/epoch eligibility ledger. The
+preprocessing, an accepted-policy event/epoch eligibility ledger, and the
+completed accepted epoch surface. The
 earlier EEG/GAM code in
 [`../../_Scripts/`](../../_Scripts/README.md)
 and the pinned external preprocessing submodule are historical evidence, not
@@ -13,8 +14,10 @@ Scripts 00--12 are inspection/evidence scripts. Script 04's historical filename
 notwithstanding, it is a config-driven raw-QC driver and does not preprocess
 signals. Script 13 is the completed production continuous-preprocessing driver.
 Script 14 joins the accepted event-policy surface to continuous provenance and
-records eligibility/readiness statuses without opening signal data. No script
-constructs epochs.
+records eligibility/readiness statuses without opening signal data. Script 15
+constructs and validates the accepted response-onset, response-end, and
+`red_on` epoch families without applying artifact rejection or spectral
+processing.
 
 ## Environment and local inputs
 
@@ -206,6 +209,28 @@ primary and 8,896-row strict-clean-only event-policy surfaces and keeps event
 candidacy, continuous availability, post-ICA availability, and future epoch
 readiness distinct. It does not create epochs or decide analytic inclusion.
 
+### 10. Construct the accepted epoch families
+
+```sh
+tools/run_epochs_v1.sh
+```
+
+Script 15 consumes exactly the 8,798 ordinary future-ready ledger rows and only
+their linked `continuous_v2` post-ICA FIFs. It writes bounded, resumable
+per-recording Epochs shards below `_Data/eeg/epochs_v1/` for response onset,
+response end, and separate `red_on` spectral-reference support. Task epochs use
+-1.5 to +2.5 s; `red_on` support uses -1.5 to +0.8 s. All retain native 1000 Hz
+sampling, include both endpoints, and use `baseline=None`.
+
+The same canonical ledger ordering is preserved in every family. The 8,789
+strict-clean rows are provided as metadata/indices over the primary signal
+surface, while the nine accepted duration-warning rows remain included and
+flagged. File 49 remains included with its continuous QC warning; file 54_1 and
+ID 86 produce no epochs under their accepted event/derivative routes. The
+stage reopens every shard and verifies source-FIF immutability. It does not run
+AutoReject, amplitude rejection, CSD, resampling, TFRs, band-power extraction,
+spectral normalization, ROI selection, participant exclusion, or statistics.
+
 ## Script index
 
 | Script | Current role | Status |
@@ -225,10 +250,11 @@ readiness distinct. It does not create epochs or decide analytic inclusion.
 | 12 | M1/M2 detector-pool sensitivity | Active parameter evidence |
 | 13 | Saved production continuous preprocessing | Complete: 94 ordinary completions plus the accepted ID-86 stop |
 | 14 | Accepted event/epoch eligibility ledger | Complete; no epochs constructed |
+| 15 | Accepted response-onset, response-end, and `red_on` Epochs | Complete: 8,798 epochs per family |
 
 Scripts 00--12 remain evidence/audit programs. Script 13 owns production
-continuous preprocessing, and script 14 owns the policy ledger. Epoch
-construction will use a later separate namespace and authorization.
+continuous preprocessing, script 14 owns the policy ledger, and script 15 owns
+the versioned accepted epoch namespace.
 
 ## Scientific-policy boundary and stopping point
 
@@ -242,12 +268,13 @@ provenance. Public, reproducible implementation boundaries remain tracked in:
   `preprocessing_parameter_audit.py`;
 - the public contract documents under [`../../docs/`](../../docs/).
 
-The accepted continuous-preprocessing and event/epoch eligibility-ledger stages
+The accepted continuous-preprocessing, eligibility-ledger, and epoch stages
 are complete. Continuous success remains independent of event-source
 availability, the accepted 8,905-row candidate surface, and later analytic
-inclusion. The current workflow does not claim constructed epochs,
-time-frequency features, or new EEG results. Epoch construction is the next
-separate authorization boundary.
+inclusion. The current workflow now contains constructed voltage epochs but no
+time-frequency features or new EEG results. Transient artifact policy, TFR
+construction and normalization, ROI/CSD choices, participant inclusion, and
+statistical analysis remain separate future stages.
 
 ## Validation
 
@@ -261,6 +288,7 @@ git status --short
 
 Focused contracts are covered by `tests/test_event_source_contract.py`,
 `tests/test_event_epoch_eligibility.py`,
+`tests/test_epoch_construction.py`,
 `tests/test_channel_qc.py`, `tests/test_montage_contract.py`,
 `tests/test_preprocessing_parameter_audit.py`, and
 `tests/test_raw_qc_guardrails.py`. Production continuous contracts, ICA routing,
