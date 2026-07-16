@@ -86,3 +86,8 @@ Thumbs.db
 .httr-oauth
 .quarto
 *.afdesign
+
+# Python test/runtime caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
