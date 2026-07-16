@@ -930,3 +930,52 @@ def compare_source_snapshots(
         "file_count": len(normalized_before),
         "total_bytes": sum(int(row["size_bytes"]) for row in normalized_before),
     }
+
+
+def assess_cached_epoch_shard(
+    manifest_path: Path,
+    artifact_path: Path,
+    expected_fingerprint: str,
+) -> dict[str, Any]:
+    """Assess whether one terminal epoch shard is safe to reopen and reuse.
+
+    Args:
+        manifest_path: Expected per-shard terminal manifest.
+        artifact_path: Expected Epochs FIF artifact.
+        expected_fingerprint: Fingerprint derived from the current ledger,
+            source derivative, code, family, keys, and metadata.
+
+    Returns:
+        A dictionary with ``action`` equal to ``reuse`` or ``rebuild``, a
+        machine-readable reason, and the parsed manifest when reusable.
+
+    Side effects:
+        Reads the manifest and, for a candidate terminal result, hashes the
+        artifact.  It does not open the Epochs object or modify either file.
+    """
+
+    if not manifest_path.exists() and not artifact_path.exists():
+        return {"action": "rebuild", "reason": "no_previous_result"}
+    if not manifest_path.is_file() or not artifact_path.is_file():
+        return {"action": "rebuild", "reason": "incomplete_previous_result"}
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"action": "rebuild", "reason": "unreadable_previous_manifest"}
+    if manifest.get("status") != "complete":
+        return {"action": "rebuild", "reason": "previous_result_not_complete"}
+    if manifest.get("fingerprint") != expected_fingerprint:
+        return {"action": "rebuild", "reason": "provenance_fingerprint_changed"}
+    artifact = manifest.get("artifact", {})
+    if not isinstance(artifact, Mapping):
+        return {"action": "rebuild", "reason": "artifact_descriptor_missing"}
+    if int(artifact.get("size_bytes", -1)) != artifact_path.stat().st_size:
+        return {"action": "rebuild", "reason": "artifact_size_changed"}
+    expected_sha256 = text_value(artifact.get("sha256"))
+    if not expected_sha256 or sha256_file(artifact_path) != expected_sha256:
+        return {"action": "rebuild", "reason": "artifact_hash_changed"}
+    return {
+        "action": "reuse",
+        "reason": "matching_terminal_result",
+        "manifest": manifest,
+    }

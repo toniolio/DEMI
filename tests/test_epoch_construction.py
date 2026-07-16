@@ -24,6 +24,8 @@ from epoch_construction import (  # noqa: E402
     EXPECTED_STRICT_CLEAN_COUNT,
     FAMILIES,
     FAMILY_BY_NAME,
+    assess_cached_epoch_shard,
+    atomic_write_json,
     assert_identical_family_keys,
     build_family_metadata,
     compare_source_snapshots,
@@ -265,6 +267,34 @@ def test_source_snapshot_detects_mutation(tmp_path: Path) -> None:
     source.write_bytes(b"changed-size")
     with pytest.raises(RuntimeError, match="changed"):
         compare_source_snapshots(before, source_snapshot([source]))
+
+
+def test_terminal_shard_cache_is_deterministic_and_fail_closed(tmp_path: Path) -> None:
+    """Only a complete matching hash-valid shard is reusable on rerun."""
+
+    artifact = tmp_path / "response_onset-epo.fif"
+    artifact.write_bytes(b"epoch artifact")
+    from epoch_construction import sha256_file
+
+    manifest = tmp_path / "manifest.json"
+    atomic_write_json(
+        manifest,
+        {
+            "status": "complete",
+            "fingerprint": "current",
+            "artifact": {
+                "size_bytes": artifact.stat().st_size,
+                "sha256": sha256_file(artifact),
+            },
+        },
+    )
+    assert assess_cached_epoch_shard(manifest, artifact, "current")["action"] == "reuse"
+    assert assess_cached_epoch_shard(manifest, artifact, "changed") == {
+        "action": "rebuild",
+        "reason": "provenance_fingerprint_changed",
+    }
+    artifact.write_bytes(b"changed")
+    assert assess_cached_epoch_shard(manifest, artifact, "current")["action"] == "rebuild"
 
 
 def test_forbidden_product_scan_catches_analysis_scope_expansion(tmp_path: Path) -> None:
