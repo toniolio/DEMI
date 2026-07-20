@@ -1,0 +1,98 @@
+schema_version: 1
+pipeline_version: tfr_v1
+
+safety:
+  mutate_accepted_epochs: false
+  epoch_interpolation: false
+  epoch_rejection: false
+  fixed_amplitude_rejection: false
+  run_autoreject: false
+  compute_csd: false
+  compute_complex_output: false
+  compute_phase_output: false
+  compute_connectivity: false
+  compute_band_power: false
+  define_roi: false
+  participant_inclusion_decisions: false
+  process_one_recording_at_a_time: true
+
+paths:
+  accepted_epoch_root: _Data/eeg/epochs_v1
+  output_root: _Data/eeg/tfr_v1
+
+accepted_surface:
+  recording_count: 81
+  trial_count: 8798
+  strict_clean_count: 8789
+  duration_warning_count: 9
+  file49_trial_count: 117
+  input_sampling_frequency_hz: 1000.0
+  families: [response_onset, response_end, red_on]
+
+channels:
+  primary_scalp:
+    [FP1, FP2, F7, F3, FZ, F4, F8, FT7, FC3, FCZ, FC4, FT8, T7, C3, CZ,
+     C4, T8, TP7, CP3, CPZ, CP4, TP8, P7, P3, PZ, P4, P8, O1, OZ, O2]
+  diagnostic_eog: [HEO, VEO]
+  diagnostic_emg: [EMG-L, EMG-A]
+  explicitly_excluded_from_primary: [M1, M2, HEO, VEO, EMG-L, EMG-A, Trigger]
+
+sampling:
+  target_frequency_hz: 100.0
+  method: polyphase
+  window: [kaiser, 5.0]
+  pad: reflect
+
+tfr:
+  method: morlet
+  frequencies_hz:
+    start: 4.0
+    stop_inclusive: 40.0
+    step: 1.0
+  cycles:
+    formula: "4 + (frequency_hz - 4) / 6"
+  zero_mean: true
+  use_fft: true
+  decim: 1
+  output: power
+  n_jobs: 1
+  planned_frequency_max_hz: 30.0
+  exploratory_frequency_min_hz: 31.0
+
+time:
+  task_tmin_seconds: -0.5
+  task_tmax_seconds: 1.5
+  task_sample_count: 201
+  baseline_tmin_seconds: -0.5
+  baseline_tmax_seconds: -0.2
+  baseline_endpoint_inclusive: true
+
+normalization:
+  reference_family: red_on
+  description: trial-matched visual pre-response reference
+  mean_power_over_time_before_ratio: true
+  formula: "10 * log10(task_power / baseline_mean_power)"
+  invalid_policy: fail_closed_without_clipping_or_imputation
+  matching_key: canonical_event_key
+
+precision:
+  calculation_dtype: float64
+  persisted_power_dtype: float32
+  persisted_db_dtype: float32
+  persisted_baseline_dtype: float32
+  log_power_formula: "10 * log10(raw_power)"
+  persist_full_log_power_cube: false
+
+diagnostics:
+  robust_log_p2p_z_threshold: 6.0
+  jump_uv_per_native_sample: 50.0
+  flat_p2p_uv: 1.0
+  diagnostic_flags_change_eligibility: false
+
+storage:
+  array_format: numpy_npy
+  array_axis_order: [trial, channel, frequency, time]
+  baseline_axis_order: [trial, channel, frequency]
+  shard_unit: recording_and_family
+  atomic_directory_publish: true
+  minimum_free_bytes: 64424509440
