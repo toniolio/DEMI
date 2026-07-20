@@ -28,6 +28,7 @@ import json
 import math
 import os
 from pathlib import Path
+import subprocess
 from typing import Any, Iterable, Mapping, Sequence
 import uuid
 
@@ -527,8 +528,9 @@ def atomic_write_npy(path: Path, array: np.ndarray) -> dict[str, Any]:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.stem}.tmp-{uuid.uuid4().hex}.npy")
+    payload = np.ascontiguousarray(array)
     with temporary.open("xb") as handle:
-        np.save(handle, np.ascontiguousarray(array), allow_pickle=False)
+        np.save(handle, payload, allow_pickle=False)
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(temporary, path)
@@ -537,9 +539,9 @@ def atomic_write_npy(path: Path, array: np.ndarray) -> dict[str, Any]:
         "path": path.name,
         "size_bytes": path.stat().st_size,
         "sha256": sha256_file(path),
-        "shape": list(array.shape),
-        "dtype": str(array.dtype),
-        "c_contiguous": bool(array.flags.c_contiguous),
+        "shape": list(payload.shape),
+        "dtype": str(payload.dtype),
+        "c_contiguous": bool(payload.flags.c_contiguous),
     }
 
 
@@ -694,6 +696,7 @@ def assess_cached_recording(
     if manifest.get("fingerprint") != expected_fingerprint:
         return {"action": "rebuild", "reason": "provenance_fingerprint_changed"}
     arrays = manifest.get("arrays", {})
+    tables = manifest.get("tables", {})
     try:
         for label, contract in expected_contracts.items():
             descriptor = arrays[label]
@@ -707,6 +710,19 @@ def assess_cached_recording(
                 recording_dir / arrays[f"{task_family}_db"]["relative_path"],
                 recording_dir / arrays["red_on_baseline_mean"]["relative_path"],
             )
+        for descriptor in tables.values():
+            path = recording_dir / descriptor["relative_path"]
+            if (
+                path.stat().st_size != int(descriptor["size_bytes"])
+                or sha256_file(path) != descriptor["sha256"]
+            ):
+                raise RuntimeError("table descriptor differs")
+            if descriptor.get("format") == "parquet":
+                frame = pd.read_parquet(path)
+                if len(frame) != int(descriptor["row_count"]):
+                    raise RuntimeError("table row count differs")
+                if stable_frame_hash(frame) != descriptor["content_sha256"]:
+                    raise RuntimeError("table content differs")
     except (KeyError, OSError, RuntimeError, ValueError):
         return {"action": "rebuild", "reason": "cached_artifact_validation_failed"}
     return {"action": "reuse", "reason": "complete_hash_reopen_valid", "manifest": manifest}
@@ -718,17 +734,12 @@ def require_ignored_output_root(repo_root: Path, output_root: Path) -> None:
     expected = (repo_root / "_Data/eeg/tfr_v1").resolve()
     if output_root.resolve() != expected:
         raise RuntimeError(f"TFR output root must be exactly {expected}")
-    result = os.spawnlp(
-        os.P_WAIT,
-        "git",
-        "git",
-        "-C",
-        str(repo_root),
-        "check-ignore",
-        "--quiet",
-        "_Data/eeg/tfr_v1",
+    result = subprocess.run(
+        ["git", "check-ignore", "--quiet", "_Data/eeg/tfr_v1"],
+        cwd=repo_root,
+        check=False,
     )
-    if result != 0:
+    if result.returncode != 0:
         raise RuntimeError("_Data/eeg/tfr_v1 is not ignored by git")
 
 

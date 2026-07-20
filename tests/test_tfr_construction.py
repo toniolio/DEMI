@@ -328,6 +328,8 @@ def test_atomic_float32_npy_reopen_formula_and_cache_reuse(tmp_path: Path) -> No
     for family, directory in (("response_onset", onset), ("response_end", end)):
         raw_desc = atomic_write_npy(directory / "raw_power.npy", raw64.astype(np.float32))
         db_desc = atomic_write_npy(directory / "db_power.npy", db64.astype(np.float32))
+        assert raw_desc["c_contiguous"]
+        assert db_desc["c_contiguous"]
         raw_desc["relative_path"] = f"{family}/raw_power.npy"
         db_desc["relative_path"] = f"{family}/db_power.npy"
         arrays[f"{family}_raw"] = raw_desc
@@ -389,6 +391,18 @@ def test_forbidden_output_scan_blocks_scope_expansion(tmp_path: Path) -> None:
     assert forbidden_output_scan(tmp_path) == ["autoreject_labels.csv", "id86_tfr.npy"]
 
 
+def test_launcher_pins_free_space_logging_unbuffered_and_keepawake_contract() -> None:
+    """Tracked launcher is self-locating, logged, guarded, and safely rerunnable."""
+
+    launcher = (REPO_ROOT / "tools/run_tfr_v1.sh").read_text(encoding="utf-8")
+    assert 'MIN_FREE_KIB=$((60 * 1024 * 1024))' in launcher
+    assert 'git check-ignore --quiet "_Data/eeg/tfr_v1"' in launcher
+    assert "PYTHONUNBUFFERED=1" in launcher
+    assert "caffeinate -dimsu" in launcher
+    assert 'tee "${LOG_PATH}"' in launcher
+    assert '"analysis/eeg_mne/16_construct_trial_level_tfr.py"' in launcher
+
+
 @pytest.mark.skipif(not EPOCH_ROOT.is_dir(), reason="local accepted epochs unavailable")
 def test_local_authority_exact_counts_channels_and_special_routes() -> None:
     """Local manifests retain 8798/8789/nine, file 49, and exclude 54_1/86."""
@@ -418,3 +432,11 @@ def test_local_authority_exact_counts_channels_and_special_routes() -> None:
     observed_primary = [name for name in epochs.ch_names if name in PRIMARY_SCALP_CHANNELS]
     assert observed_primary == list(PRIMARY_SCALP_CHANNELS)
     assert not set(EXCLUDED_PRIMARY_CHANNELS) & set(observed_primary)
+    metadata = pd.read_parquet(
+        EPOCH_ROOT / manifests["response_onset"]["metadata"]["path"]
+    )
+    file49 = metadata.loc[metadata["eeg_source_id"].eq(49)]
+    assert len(file49) == EXPECTED_FILE49_COUNT
+    assert file49["continuous_qc_warning"].str.contains(
+        "global_bad_proportion_above_25_percent", regex=False
+    ).all()
