@@ -28,14 +28,19 @@ The tracked workflow now separates scripts 00--12, which provide read-only
 inventory and parameter evidence, from script 13, which implements production
 continuous preprocessing, script 14, which implements the accepted
 event/epoch eligibility ledger, and script 15, which constructs the accepted
-epoch surface. Continuous preprocessing is closed: 94 files are complete, with
-one separately retained accepted historical ICA stop. The ledger records 8,905
-primary, 8,896 strict-clean-only, and 8,798 ordinary future-ready rows. The
-completed epoch stage contains 8,798 response-onset, 8,798 response-end, and
-8,798 `red_on` support epochs, with 8,789 strict-clean rows identifiable in
-each family. Time-frequency construction, transient-artifact policy, spectral
-normalization, ROI/CSD choices, participant inclusion, and statistical
-analysis remain separate future stages.
+epoch surface. Script 16 implements the accepted retain-and-diagnose
+transient-artifact contract and constructs trial-level Morlet power plus
+trial-matched `red_on` dB normalization. Continuous preprocessing is closed: 94
+files are complete, with one separately retained accepted historical ICA stop.
+The ledger records 8,905 primary, 8,896 strict-clean-only, and 8,798 ordinary
+future-ready rows. The completed epoch stage contains 8,798 response-onset,
+8,798 response-end, and 8,798 `red_on` support epochs, with 8,789 strict-clean
+rows identifiable in each family. The completed time-frequency stage preserves
+all 8,798 onset and end trials on a 30-channel, 4--40-Hz, -0.5-to-+1.5-s
+surface; artifact flags are diagnostic metadata and do not change eligibility.
+ROI/channel summaries, CSD sensitivity, participant inclusion, behavioural
+predictor representation, statistical modelling, inferential contrasts, and
+scientific interpretation remain separate future stages.
 
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary

@@ -4,7 +4,7 @@ This is the active EEG reanalysis path. It starts from raw EDF recordings and
 provides inventory, frozen-behaviour linkage, event evidence, descriptive
 raw-channel QC, preprocessing-parameter audits, completed versioned continuous
 preprocessing, an accepted-policy event/epoch eligibility ledger, and the
-completed accepted epoch surface. The
+completed accepted epoch and trial-level time-frequency surfaces. The
 earlier EEG/GAM code in
 [`../../_Scripts/`](../../_Scripts/README.md)
 and the pinned external preprocessing submodule are historical evidence, not
@@ -17,7 +17,9 @@ Script 14 joins the accepted event-policy surface to continuous provenance and
 records eligibility/readiness statuses without opening signal data. Script 15
 constructs and validates the accepted response-onset, response-end, and
 `red_on` epoch families without applying artifact rejection or spectral
-processing.
+processing. Script 16 constructs and validates the accepted trial-level Morlet
+power and trial-matched `red_on` dB products without changing epoch
+eligibility.
 
 ## Environment and local inputs
 
@@ -231,6 +233,29 @@ stage reopens every shard and verifies source-FIF immutability. It does not run
 AutoReject, amplitude rejection, CSD, resampling, TFRs, band-power extraction,
 spectral normalization, ROI selection, participant exclusion, or statistics.
 
+### 11. Construct trial-level time-frequency products
+
+```sh
+tools/run_tfr_v1.sh
+```
+
+Script 16 reopens the three accepted epoch families, verifies their hashes and
+canonical keys, and writes resumable recording shards below
+`_Data/eeg/tfr_v1/`. It selects the accepted 30 scalp channels, resamples
+in-memory copies to 100 Hz with the fixed polyphase contract, and computes
+trial-level Morlet power at 4--40 Hz in 1-Hz steps. Response-onset and
+response-end raw power and trial-matched `red_on` dB power retain -0.5 to +1.5
+s (201 samples); the shared baseline is mean `red_on` power from -0.5 to -0.2
+s for the same canonical trial, channel, and frequency.
+
+The stage stores float32 raw and dB arrays as recording-sharded NumPy files,
+with Parquet row metadata and JSON/CSV manifests and axes. Unnormalized log
+power is the deterministic `10 * log10(raw_power)` view and is not stored as a
+duplicate cube. Transient-amplitude, jump, flatness, EOG/EMG, and continuous-QC
+facts are diagnostic metadata only: no accepted epoch is rejected,
+interpolated, or repaired. Strict-clean and duration-warning-inclusive
+surfaces remain index views over one signal route.
+
 ## Script index
 
 | Script | Current role | Status |
@@ -251,10 +276,12 @@ spectral normalization, ROI selection, participant exclusion, or statistics.
 | 13 | Saved production continuous preprocessing | Complete: 94 ordinary completions plus the accepted ID-86 stop |
 | 14 | Accepted event/epoch eligibility ledger | Complete; no epochs constructed |
 | 15 | Accepted response-onset, response-end, and `red_on` Epochs | Complete: 8,798 epochs per family |
+| 16 | Trial-level Morlet power and trial-matched `red_on` dB normalization | Complete: 8,798 onset and 8,798 end trials |
 
 Scripts 00--12 remain evidence/audit programs. Script 13 owns production
 continuous preprocessing, script 14 owns the policy ledger, and script 15 owns
-the versioned accepted epoch namespace.
+the versioned accepted epoch namespace. Script 16 owns the versioned
+trial-level TFR namespace.
 
 ## Scientific-policy boundary and stopping point
 
@@ -268,13 +295,14 @@ provenance. Public, reproducible implementation boundaries remain tracked in:
   `preprocessing_parameter_audit.py`;
 - the public contract documents under [`../../docs/`](../../docs/).
 
-The accepted continuous-preprocessing, eligibility-ledger, and epoch stages
-are complete. Continuous success remains independent of event-source
-availability, the accepted 8,905-row candidate surface, and later analytic
-inclusion. The current workflow now contains constructed voltage epochs but no
-time-frequency features or new EEG results. Transient artifact policy, TFR
-construction and normalization, ROI/CSD choices, participant inclusion, and
-statistical analysis remain separate future stages.
+The accepted continuous-preprocessing, eligibility-ledger, epoch, and
+trial-level TFR stages are complete. Continuous success remains independent of
+event-source availability, the accepted 8,905-row candidate surface, and later
+analytic inclusion. The TFR stage adds no epoch rejection and does not by
+itself constitute an EEG result. ROI/channel summaries, CSD sensitivity,
+participant inclusion, behavioural-predictor representation, statistical
+models, inferential contrasts, and scientific interpretation remain separate
+future stages.
 
 ## Validation
 
@@ -289,6 +317,7 @@ git status --short
 Focused contracts are covered by `tests/test_event_source_contract.py`,
 `tests/test_event_epoch_eligibility.py`,
 `tests/test_epoch_construction.py`,
+`tests/test_tfr_construction.py`,
 `tests/test_channel_qc.py`, `tests/test_montage_contract.py`,
 `tests/test_preprocessing_parameter_audit.py`, and
 `tests/test_raw_qc_guardrails.py`. Production continuous contracts, ICA routing,
