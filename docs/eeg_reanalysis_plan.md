@@ -38,9 +38,14 @@ future-ready rows. The completed epoch stage contains 8,798 response-onset,
 rows identifiable in each family. The completed time-frequency stage preserves
 all 8,798 onset and end trials on a 30-channel, 4--40-Hz, -0.5-to-+1.5-s
 surface; artifact flags are diagnostic metadata and do not change eligibility.
-ROI/channel summaries, CSD sensitivity, participant inclusion, behavioural
-predictor representation, statistical modelling, inferential contrasts, and
-scientific interpretation remain separate future stages.
+Script 17 now provides conventional trial-level fixed-band/window features for
+all 30 physical channels and equal-weight predeclared frontal, posterior, and
+task-hand-normalized motor ROIs. It retains all 8,798 trials, with dB primary
+and unnormalized log power as a sensitivity. No statistical model or
+inferential result has yet been produced. Model-ready predictor representation,
+statistical modelling, inferential contrasts, CSD sensitivity, and scientific
+interpretation remain separate future stages; a whole-scalp GAMM is reserved
+only as a possible later spatial/historical sensitivity.
 
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
+import subprocess
 import sys
 
 import numpy as np
@@ -55,6 +57,8 @@ from feature_construction import (  # noqa: E402
 
 
 CONFIG_PATH = EEG_DIR / "feature_config_v1.yaml"
+PRODUCTION_ROOT = REPO_ROOT / "_Data/eeg/features_v1"
+PRODUCTION_MANIFEST = PRODUCTION_ROOT / "feature_run_manifest.json"
 
 
 def load_config() -> dict:
@@ -286,3 +290,92 @@ def test_output_namespace_is_ignored_and_broad_targets_fail() -> None:
     require_ignored_output_root(REPO_ROOT, REPO_ROOT / "_Data/eeg/features_v1")
     with pytest.raises(RuntimeError, match="unsafe_feature_output_root"):
         require_ignored_output_root(REPO_ROOT, REPO_ROOT)
+
+
+@pytest.mark.skipif(not PRODUCTION_MANIFEST.is_file(), reason="ignored production output absent")
+def test_completed_production_surface_matches_all_acceptance_counts() -> None:
+    """Current ignored production output has exact lineage, scope, and feature counts."""
+
+    manifest = json.loads(PRODUCTION_MANIFEST.read_text(encoding="utf-8"))
+    validation = json.loads(
+        (PRODUCTION_ROOT / "validation/feature_validation.json").read_text(encoding="utf-8")
+    )
+    lineage = validation["lineage"]
+    assert manifest["status"] == "complete"
+    assert len(manifest["recordings"]) == 81
+    assert pq.read_metadata(PRODUCTION_ROOT / "channel_features.parquet").num_rows == 2_903_340
+    assert pq.read_metadata(PRODUCTION_ROOT / "roi_features.parquet").num_rows == 114_374
+    assert lineage["accepted_eeg_trials"] == 8_798
+    assert lineage["matched_frozen_behaviour_rows"] == 8_798
+    assert lineage["unmatched_accepted_keys"] == 0
+    assert lineage["duplicate_accepted_keys"] == 0
+    assert lineage["duplicate_frozen_behaviour_keys"] == 0
+    assert lineage["strict_clean_trials"] == 8_789
+    assert lineage["duration_warning_trials"] == 9
+    assert lineage["duration_lt_0p5_trials"] == 47
+    assert lineage["duration_lt_1p0_trials"] == 681
+    assert lineage["file49_trials"] == 117
+    assert lineage["file54_1_present"] is False
+    assert lineage["id86_present"] is False
+    assert lineage["participant_4_trials"] == 48
+    assert lineage["participant_60_trials"] == 34
+    assert lineage["participant_70_original_handedness"] == ["a"]
+    assert lineage["participant_70_analysis_hand"] == ["right"]
+    assert lineage["participant_70_mapping_source"] == ["owner_recollection"]
+    assert lineage["physical_missing_mt_clip"] == 0
+    assert lineage["imagery_bad_figure_overlap"] == 0
+    assert validation["all_channel_values_finite"]
+    assert validation["all_roi_values_finite"]
+    assert validation["all_roi_values_reproduce_from_channel_rows"]
+    assert validation["no_31_40_hz_feature_input"]
+    assert validation["no_low_high_beta_split"]
+    assert validation["no_participant_averaging_authoritative_output"]
+    assert validation["no_eligibility_change"]
+    assert validation["source_tfr_unchanged"]
+
+    scopes = pd.read_parquet(PRODUCTION_ROOT / "views/analysis_scope_indices.parquet")
+    assert len(scopes) == 8_798
+    assert int(scopes["scope_primary_blocks_1_5"].sum()) == 7_307
+    assert int(scopes["scope_imagery_final_overt_bridge"].sum()) == 738
+    participants = pd.read_parquet(PRODUCTION_ROOT / "summaries/participant_trial_counts.parquet")
+    assert {4, 60, 70}.issubset(set(participants["behavioural_id"]))
+
+
+@pytest.mark.skipif(not PRODUCTION_MANIFEST.is_file(), reason="ignored production output absent")
+def test_completed_production_reuse_does_not_rewrite_accepted_artifacts() -> None:
+    """Validation-only rerun reopens/hashes without changing accepted output files."""
+
+    accepted = [
+        PRODUCTION_MANIFEST,
+        PRODUCTION_ROOT / "channel_features.parquet",
+        PRODUCTION_ROOT / "roi_features.parquet",
+        PRODUCTION_ROOT / "validation/feature_validation.json",
+    ]
+    before = [(path.stat().st_size, path.stat().st_mtime_ns) for path in accepted]
+    result = subprocess.run(
+        [
+            str(REPO_ROOT / ".venv/bin/python"),
+            str(EEG_DIR / "17_construct_trial_level_features.py"),
+            "--verify-current",
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    after = [(path.stat().st_size, path.stat().st_mtime_ns) for path in accepted]
+    assert "PASS features_v1 unchanged reuse" in result.stdout
+    assert before == after
+
+
+@pytest.mark.skipif(not PRODUCTION_MANIFEST.is_file(), reason="ignored production output absent")
+def test_completed_source_tfr_immutability_evidence_is_exact() -> None:
+    """All 405 accepted TFR arrays retain identical before/after size/mtime evidence."""
+
+    evidence = json.loads(
+        (PRODUCTION_ROOT / "source_tfr_immutability.json").read_text(encoding="utf-8")
+    )
+    assert evidence["status"] == "unchanged"
+    assert evidence["array_count"] == 405
+    assert evidence["total_bytes"] == 31_445_863_440
+    assert evidence["before"] == evidence["after"]

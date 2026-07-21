@@ -256,6 +256,26 @@ facts are diagnostic metadata only: no accepted epoch is rejected,
 interpolated, or repaired. Strict-clean and duration-warning-inclusive
 surfaces remain index views over one signal route.
 
+### 12. Construct conventional trial-level features
+
+```sh
+tools/run_features_v1.sh
+```
+
+Script 17 verifies one-to-one linkage to the frozen behavioural authority and
+constructs fixed theta (4--8 Hz), alpha (9--12 Hz), and beta (13--30 Hz)
+summaries for the predeclared response-onset and response-end windows. It
+preserves all 30 physical-channel features and derives equal-weight
+frontal-theta, posterior-alpha, and task-hand-normalized motor-beta ROIs from
+the completed channel table. Trial-matched dB is primary; cell-level
+unnormalized log power is retained as the required sensitivity.
+
+The ignored `_Data/eeg/features_v1/` namespace retains all 8,798 trials,
+strict-clean and warning views, explicit blocks-1--5 and final-overt bridge
+scopes, behavioural-lineage evidence, and physical source-channel provenance.
+This stage does not average participants, build a model table, fit an
+inferential model, calculate contrasts, apply CSD, or interpret EEG effects.
+
 ## Script index
 
 | Script | Current role | Status |
@@ -277,11 +297,13 @@ surfaces remain index views over one signal route.
 | 14 | Accepted event/epoch eligibility ledger | Complete; no epochs constructed |
 | 15 | Accepted response-onset, response-end, and `red_on` Epochs | Complete: 8,798 epochs per family |
 | 16 | Trial-level Morlet power and trial-matched `red_on` dB normalization | Complete: 8,798 onset and 8,798 end trials |
+| 17 | Conventional fixed-band/window channel and predeclared ROI features | Complete: 2,903,340 channel and 114,374 ROI rows |
 
 Scripts 00--12 remain evidence/audit programs. Script 13 owns production
 continuous preprocessing, script 14 owns the policy ledger, and script 15 owns
 the versioned accepted epoch namespace. Script 16 owns the versioned
-trial-level TFR namespace.
+trial-level TFR namespace. Script 17 owns the versioned conventional feature
+namespace.
 
 ## Scientific-policy boundary and stopping point
 
@@ -295,14 +317,16 @@ provenance. Public, reproducible implementation boundaries remain tracked in:
   `preprocessing_parameter_audit.py`;
 - the public contract documents under [`../../docs/`](../../docs/).
 
-The accepted continuous-preprocessing, eligibility-ledger, epoch, and
-trial-level TFR stages are complete. Continuous success remains independent of
-event-source availability, the accepted 8,905-row candidate surface, and later
-analytic inclusion. The TFR stage adds no epoch rejection and does not by
-itself constitute an EEG result. ROI/channel summaries, CSD sensitivity,
-participant inclusion, behavioural-predictor representation, statistical
-models, inferential contrasts, and scientific interpretation remain separate
-future stages.
+The accepted continuous-preprocessing, eligibility-ledger, epoch, trial-level
+TFR, and conventional feature stages are complete. Continuous success remains
+independent of event-source availability, the accepted 8,905-row candidate
+surface, and later analytic inclusion. The TFR stage adds no epoch rejection and does not by
+itself constitute an EEG result. The feature stage preserves channel-level and
+predeclared ROI surfaces but adds no model or inference. Model-ready predictor
+representation, statistical models, inferential contrasts, CSD sensitivity,
+and scientific interpretation remain separate future stages. A whole-scalp
+GAMM is, at most, a later historical/spatial sensitivity rather than the
+primary analysis architecture.
 
 ## Validation
 
@@ -318,6 +342,7 @@ Focused contracts are covered by `tests/test_event_source_contract.py`,
 `tests/test_event_epoch_eligibility.py`,
 `tests/test_epoch_construction.py`,
 `tests/test_tfr_construction.py`,
+`tests/test_feature_construction.py`,
 `tests/test_channel_qc.py`, `tests/test_montage_contract.py`,
 `tests/test_preprocessing_parameter_audit.py`, and
 `tests/test_raw_qc_guardrails.py`. Production continuous contracts, ICA routing,
