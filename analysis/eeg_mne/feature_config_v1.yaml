@@ -1,0 +1,209 @@
+schema_version: 1
+pipeline_version: features_v1
+
+safety:
+  mutate_tfr: false
+  rerun_convolution: false
+  create_baseline: false
+  create_duration_responsive_windows: false
+  create_31_40_hz_features: false
+  split_beta: false
+  change_trial_eligibility: false
+  participant_averaging: false
+  center_or_standardize_predictors: false
+  build_model_matrix: false
+  fit_models: false
+  compute_csd: false
+  process_one_recording_at_a_time: true
+
+paths:
+  tfr_root: _Data/eeg/tfr_v1
+  frozen_behaviour_rds: _Private/old_rds/bdat2.rds
+  frozen_bad_imagery_rds: _Private/old_rds/bad_imagery_trials.rds
+  historical_offset_authority: _Data/behavior/event_offsets/event_offsets_old_compatible.csv
+  output_root: _Data/eeg/features_v1
+
+accepted_surface:
+  trial_count: 8798
+  participant_count: 81
+  recording_count: 81
+  strict_clean_count: 8789
+  duration_warning_count: 9
+  file49_trial_count: 117
+  participant_4_trial_count: 48
+  participant_60_trial_count: 34
+  response_duration_lt_0p5_count: 47
+  response_duration_lt_1p0_count: 681
+  channel_count: 30
+  channel_feature_definitions_per_trial: 11
+  roi_feature_definitions_per_trial: 13
+  channel_row_count: 2903340
+  roi_row_count: 114374
+
+representations:
+  primary:
+    name: trial_matched_red_on_db
+    source_array: db_power
+    output_column: value_db
+  sensitivity:
+    name: unnormalized_log_power
+    source_array: raw_power
+    formula: "10 * log10(raw_power)"
+    output_column: value_log_power
+  aggregation:
+    cell_transform_before_aggregation: true
+    order: "arithmetic mean of existing transformed cells over inclusive frequency bins and time samples"
+    frequency_weighting: equal
+    time_weighting: equal
+    roi_weighting: equal
+
+bands:
+  theta:
+    minimum_hz: 4.0
+    maximum_hz: 8.0
+    endpoint_inclusive: true
+    expected_frequency_count: 5
+  alpha:
+    minimum_hz: 9.0
+    maximum_hz: 12.0
+    endpoint_inclusive: true
+    expected_frequency_count: 4
+  beta:
+    minimum_hz: 13.0
+    maximum_hz: 30.0
+    endpoint_inclusive: true
+    expected_frequency_count: 18
+
+feature_definitions:
+  response_onset_0_1:
+    source_family: response_onset
+    minimum_seconds: 0.0
+    maximum_seconds: 1.0
+    endpoint_inclusive: true
+    expected_time_sample_count: 101
+    bands: [theta, alpha, beta]
+    role_by_band:
+      theta: primary_execution_imagery
+      alpha: primary_execution_imagery
+      beta: primary_execution_imagery
+  response_onset_0_0p5:
+    source_family: response_onset
+    minimum_seconds: 0.0
+    maximum_seconds: 0.5
+    endpoint_inclusive: true
+    expected_time_sample_count: 51
+    bands: [theta, alpha, beta]
+    role_by_band:
+      theta: required_onset_window_sensitivity
+      alpha: required_onset_window_sensitivity
+      beta: required_onset_window_sensitivity
+  response_end_0_1:
+    source_family: response_end
+    minimum_seconds: 0.0
+    maximum_seconds: 1.0
+    endpoint_inclusive: true
+    expected_time_sample_count: 101
+    bands: [theta, alpha, beta]
+    role_by_band:
+      theta: primary_post_response_evaluation
+      alpha: primary_post_response_evaluation
+      beta: historical_secondary_summary
+  response_end_pre_0p5_0:
+    source_family: response_end
+    minimum_seconds: -0.5
+    maximum_seconds: 0.0
+    endpoint_inclusive: true
+    expected_time_sample_count: 51
+    bands: [beta]
+    role_by_band:
+      beta: planned_late_movement_pre_end_phase
+  response_end_pmbr_0p5_1p5:
+    source_family: response_end
+    minimum_seconds: 0.5
+    maximum_seconds: 1.5
+    endpoint_inclusive: true
+    expected_time_sample_count: 101
+    bands: [beta]
+    role_by_band:
+      beta: planned_pmbr_phase
+
+rois:
+  frontal_theta:
+    band: theta
+    normalized_laterality: not_applicable
+    physical_channels: [F3, FZ, F4, FCZ]
+    features: [response_onset_0_1, response_onset_0_0p5]
+    role: hypothesis_roi
+  posterior_alpha:
+    band: alpha
+    normalized_laterality: not_applicable
+    physical_channels: [P3, PZ, P4, O1, OZ, O2]
+    features: [response_end_0_1]
+    role: hypothesis_roi
+  contralateral_motor_beta:
+    band: beta
+    normalized_laterality: contralateral_to_task_hand
+    right_task_hand_channels: [FC3, C3, CP3]
+    left_task_hand_channels: [FC4, C4, CP4]
+    features:
+      - response_onset_0_1
+      - response_onset_0_0p5
+      - response_end_pre_0p5_0
+      - response_end_pmbr_0p5_1p5
+      - response_end_0_1
+    role: hypothesis_and_historical_secondary_roi
+  ipsilateral_motor_beta:
+    band: beta
+    normalized_laterality: ipsilateral_to_task_hand
+    right_task_hand_channels: [FC4, C4, CP4]
+    left_task_hand_channels: [FC3, C3, CP3]
+    features:
+      - response_onset_0_1
+      - response_onset_0_0p5
+      - response_end_pre_0p5_0
+      - response_end_pmbr_0p5_1p5
+      - response_end_0_1
+    role: secondary_descriptive_roi
+
+task_hand_mapping:
+  frozen_codes:
+    r:
+      analysis_hand: right
+      motor_laterality_mapping: right_hand_task
+      mapping_source: frozen_handedness
+      mapping_override: false
+    l:
+      analysis_hand: left
+      motor_laterality_mapping: left_hand_task
+      mapping_source: frozen_handedness
+      mapping_override: false
+  owner_overrides:
+    70:
+      required_original_handedness: a
+      analysis_hand: right
+      motor_laterality_mapping: right_hand_task
+      mapping_source: owner_recollection
+      mapping_override: true
+
+analysis_scopes:
+  all_accepted: true
+  primary_assigned_condition: "offset_block <= 5"
+  imagery_final_overt_bridge: "group == 'imagery' and physical and offset_block == 6"
+  strict_clean: strict_clean_eligibility
+  duration_warning_inclusive: true
+
+diagnostic_frequency_surface:
+  minimum_hz: 31.0
+  maximum_hz: 40.0
+  feature_rows_created: false
+  retained_authority: _Data/eeg/tfr_v1
+
+storage:
+  format: parquet
+  compression: zstd
+  authoritative_channel_table: channel_features.parquet
+  authoritative_roi_table: roi_features.parquet
+  per_recording_cache: true
+  atomic_recording_publish: true
+  atomic_aggregate_publish: true
+  unchanged_validated_reuse_without_rewrite: true
