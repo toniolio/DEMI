@@ -205,6 +205,21 @@ def test_exact_roi_membership_task_laterality_and_equal_weight_derivation() -> N
     assert roi_rows["roi_weighting"].eq("equal_weight_arithmetic_mean").all()
 
 
+def test_motor_roi_derivation_supports_a_single_task_hand_recording() -> None:
+    """A recording containing only one task hand still yields complete motor ROIs."""
+
+    channel_rows = synthetic_channel_rows()
+    right_only = channel_rows.loc[channel_rows["analysis_hand"].eq("right")].copy()
+    roi_rows = derive_roi_rows(right_only, load_config())
+    assert len(roi_rows) == 2 * EXPECTED_ROI_DEFINITIONS
+    assert set(
+        roi_rows.loc[
+            roi_rows["roi_name"].eq("contralateral_motor_beta"),
+            "physical_source_channels",
+        ]
+    ) == {"FC3;C3;CP3"}
+
+
 def test_contract_counts_scope_and_nonoperation_invariants() -> None:
     """Configuration pins accepted rows, participants, scopes, and non-operations."""
 

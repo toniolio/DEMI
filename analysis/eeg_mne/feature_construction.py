@@ -627,6 +627,8 @@ def derive_roi_rows(channel_rows: pd.DataFrame, config: Mapping[str, Any]) -> pd
                     & channel_rows["analysis_hand"].eq(hand)
                     & channel_rows["physical_channel"].isin(channels)
                 ]
+                if selected.empty:
+                    continue
                 hand_parts.append(
                     _roi_from_selection(
                         selected,
@@ -636,6 +638,8 @@ def derive_roi_rows(channel_rows: pd.DataFrame, config: Mapping[str, Any]) -> pd
                         channels=channels,
                     )
                 )
+            if not hand_parts:
+                raise RuntimeError(f"motor_roi_has_no_task_hand_rows:{roi_name}:{feature_name}")
             outputs.append(pd.concat(hand_parts, ignore_index=True))
     result = pd.concat(outputs, ignore_index=True)
     result = result.sort_values(
@@ -654,24 +658,53 @@ def derive_roi_rows(channel_rows: pd.DataFrame, config: Mapping[str, Any]) -> pd
 def roi_equality_validation(channel_rows: pd.DataFrame, roi_rows: pd.DataFrame) -> dict[str, float | int]:
     """Recalculate every ROI from channel rows and report maximum differences."""
 
-    recalculated = []
-    for row in roi_rows.itertuples(index=False):
-        channels = str(row.physical_source_channels).split(";")
-        selected = channel_rows.loc[
-            channel_rows["canonical_event_key"].eq(row.canonical_event_key)
-            & channel_rows["feature_definition"].eq(row.feature_definition)
-            & channel_rows["band"].eq(row.band)
-            & channel_rows["physical_channel"].isin(channels)
+    identity = ["canonical_event_key", "roi_name", "feature_definition", "band"]
+    requested = roi_rows[
+        [
+            *identity,
+            "physical_source_channels",
+            "contributing_channel_count",
+            "value_db",
+            "value_log_power",
         ]
-        if len(selected) != int(row.contributing_channel_count):
-            raise RuntimeError("roi_recalculation_channel_count_mismatch")
-        recalculated.append(
-            (
-                abs(float(row.value_db) - float(selected["value_db"].mean())),
-                abs(float(row.value_log_power) - float(selected["value_log_power"].mean())),
-            )
-        )
-    differences = np.asarray(recalculated, dtype=np.float64)
+    ].copy()
+    requested["physical_channel"] = requested["physical_source_channels"].str.split(";")
+    requested = requested.explode("physical_channel", ignore_index=True)
+    source = channel_rows[
+        [
+            "canonical_event_key",
+            "feature_definition",
+            "band",
+            "physical_channel",
+            "value_db",
+            "value_log_power",
+        ]
+    ].rename(columns={"value_db": "source_value_db", "value_log_power": "source_value_log_power"})
+    linked = requested.merge(
+        source,
+        on=["canonical_event_key", "feature_definition", "band", "physical_channel"],
+        how="left",
+        validate="many_to_one",
+    )
+    recalculated = linked.groupby(identity, sort=False, as_index=False).agg(
+        observed_channel_count=("source_value_db", "count"),
+        recalculated_db=("source_value_db", "mean"),
+        recalculated_log_power=("source_value_log_power", "mean"),
+        expected_channel_count=("contributing_channel_count", "first"),
+        persisted_db=("value_db", "first"),
+        persisted_log_power=("value_log_power", "first"),
+    )
+    if not recalculated["observed_channel_count"].eq(recalculated["expected_channel_count"]).all():
+        raise RuntimeError("roi_recalculation_channel_count_mismatch")
+    differences = np.column_stack(
+        [
+            np.abs(recalculated["persisted_db"] - recalculated["recalculated_db"]),
+            np.abs(
+                recalculated["persisted_log_power"]
+                - recalculated["recalculated_log_power"]
+            ),
+        ]
+    )
     return {
         "rows_checked": len(roi_rows),
         "maximum_absolute_db_difference": float(differences[:, 0].max(initial=0.0)),
