@@ -267,6 +267,14 @@ def test_completed_views_counts_beta_pairs_and_rank() -> None:
         assert len(frame) == 3_703
         assert frame["behavioural_id"].nunique() == 41
         assert int(frame["strict_clean_eligibility"].sum()) == 3_699
+    bridge = pd.read_parquet(PRODUCTION_ROOT / "views/bridge_descriptive.parquet")
+    bridge_plus = pd.read_parquet(
+        PRODUCTION_ROOT / "views/bridge_descriptive_plus_h1_window.parquet"
+    )
+    assert bridge["canonical_event_key"].nunique() == 738
+    assert bridge["behavioural_id"].nunique() == 40
+    assert int(bridge["strict_clean_eligibility"].sum()) == 2_932
+    assert int(bridge_plus["strict_clean_eligibility"].sum()) == 3_665
     ranks = pd.read_parquet(PRODUCTION_ROOT / "validation/model_matrix_rank.parquet")
     assert ranks["rank"].tolist() == [6, 6, 8]
     assert ranks["full_column_rank"].all()

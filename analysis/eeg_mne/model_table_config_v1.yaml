@@ -3,6 +3,13 @@ pipeline_version: model_tables_v1
 
 accepted_source:
   feature_namespace: features_v1
+  feature_authority_fingerprint: 87152fb763a448354c416a0caf11bd2711a8e572181841f29c24ff33dcf06ae8
+  feature_run_manifest_sha256: 487e0e88f2abe713654d6923a646f23ae886d41cd1a109251a53bc644f9ca066
+  roi_features_sha256: 274e12a5fa5be04c159634288e1685d8607b27a69ac9b9f4553608553261e8ba
+  behavioural_lineage_sha256: 5437b4ba1a6444276b8c4debfa00b1ef4539ff556ba05bd0fae2abd11fd8f6e1
+  feature_validation_sha256: 0fedd56e4c0f5c955eadfd6daf247001df0df23e0b9f3510870de3fb0fe28bff
+  tfr_run_manifest_sha256: f127e80dcbc3f0292a26a81280ed79fb06e242c7a45d16292db64f77544ec48a
+  frozen_behaviour_sha256: 3bf347da7b5007b65e0a61c135c55aa176c771cbbef49c221128eec9fc5bb831
   accepted_trials: 8798
   participants: 81
   recordings: 81

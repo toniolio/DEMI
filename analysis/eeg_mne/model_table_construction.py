@@ -73,6 +73,16 @@ PRIMARY_ESTIMAND_IDS = ("T1", "T2", "T3", "A1", "A2", "A3", "B1", "B2", "B3")
 SUPPLEMENTARY_ESTIMAND_IDS = ("B4", "B5", "B6")
 FAMILYWISE_SUPPORT_PERCENT = 99.4444
 
+ACCEPTED_SOURCE_HASHES: Mapping[str, str] = {
+    "feature_authority_fingerprint": "87152fb763a448354c416a0caf11bd2711a8e572181841f29c24ff33dcf06ae8",
+    "feature_run_manifest_sha256": "487e0e88f2abe713654d6923a646f23ae886d41cd1a109251a53bc644f9ca066",
+    "roi_features_sha256": "274e12a5fa5be04c159634288e1685d8607b27a69ac9b9f4553608553261e8ba",
+    "behavioural_lineage_sha256": "5437b4ba1a6444276b8c4debfa00b1ef4539ff556ba05bd0fae2abd11fd8f6e1",
+    "feature_validation_sha256": "0fedd56e4c0f5c955eadfd6daf247001df0df23e0b9f3510870de3fb0fe28bff",
+    "tfr_run_manifest_sha256": "f127e80dcbc3f0292a26a81280ed79fb06e242c7a45d16292db64f77544ec48a",
+    "frozen_behaviour_sha256": "3bf347da7b5007b65e0a61c135c55aa176c771cbbef49c221128eec9fc5bb831",
+}
+
 PRIMARY_MODEL_ROLES = ("theta_primary", "alpha_primary", "beta_pre", "beta_pmbr")
 ALL_MODEL_ROLES = (
     "theta_primary",
@@ -99,6 +109,25 @@ EXPECTED_VIEW_ROWS: Mapping[str, int] = {
     "objective_error_alpha": 3_703,
     "bridge_descriptive": 2_952,
     "bridge_descriptive_plus_h1_window": 3_690,
+}
+
+EXPECTED_VIEW_STRICT_ROWS: Mapping[str, int] = {
+    "h1_theta_primary": 7_303,
+    "h1_theta_window_sensitivity": 7_303,
+    "h2_alpha_primary": 7_303,
+    "h3_beta_primary": 14_606,
+    "primary_core_union": 29_212,
+    "primary_core_plus_h1_window": 36_515,
+    "h1_theta_primary_strict_clean": 7_303,
+    "h1_theta_window_sensitivity_strict_clean": 7_303,
+    "h2_alpha_primary_strict_clean": 7_303,
+    "h3_beta_primary_strict_clean": 14_606,
+    "primary_core_union_strict_clean": 29_212,
+    "primary_core_plus_h1_window_strict_clean": 36_515,
+    "objective_error_theta": 3_699,
+    "objective_error_alpha": 3_699,
+    "bridge_descriptive": 2_932,
+    "bridge_descriptive_plus_h1_window": 3_665,
 }
 
 
@@ -139,6 +168,8 @@ def load_and_validate_model_table_config(path: Path) -> tuple[dict[str, Any], st
     }
     if any(int(accepted[key]) != value for key, value in expected.items()):
         raise RuntimeError("model_table_accepted_count_contract_mismatch")
+    if any(str(accepted[key]) != value for key, value in ACCEPTED_SOURCE_HASHES.items()):
+        raise RuntimeError("model_table_accepted_source_hash_contract_mismatch")
     accuracy = config["predictors"]["accuracy_rating"]
     error = config["predictors"]["objective_error"]
     if (
@@ -820,6 +851,12 @@ def validate_general_and_views(
     if trial_surface["eeg_source_id"].eq(86).any() or filenames.str.contains("54_1", regex=False).any():
         raise RuntimeError("file54_1_or_id86_unexpectedly_present")
     value_identity = source_value_identity(table, selected_source_rows)
+    view_strict_rows = {
+        name: int(frame["strict_clean_eligibility"].sum())
+        for name, frame in views.items()
+    }
+    if view_strict_rows != dict(EXPECTED_VIEW_STRICT_ROWS):
+        raise RuntimeError(f"deterministic_view_strict_count_mismatch:{view_strict_rows}")
     primary_estimands = estimands.loc[estimands["primary_family_member"]]
     supplementary = estimands.loc[~estimands["primary_family_member"]]
     if (
@@ -839,6 +876,7 @@ def validate_general_and_views(
         "strict_clean_trials": int(trial_surface["strict_clean_eligibility"].sum()),
         "duration_warning_trials": int(trial_surface["duration_warning_flag"].sum()),
         "view_rows": {name: len(frame) for name, frame in views.items()},
+        "view_strict_clean_rows": view_strict_rows,
         "predictor_derivations": dict(predictor_facts),
         "source_value_identity": value_identity,
         "model_matrix_rank": rank_validation.to_dict("records"),
