@@ -1,0 +1,135 @@
+schema_version: 1
+pipeline_version: model_tables_v1
+
+accepted_source:
+  feature_namespace: features_v1
+  accepted_trials: 8798
+  participants: 81
+  recordings: 81
+  primary_blocks_1_5_trials: 7307
+  bridge_trials: 738
+  strict_clean_trials: 8789
+  duration_warning_trials: 9
+  expected_general_rows: 43990
+
+predictors:
+  accuracy_rating:
+    source_column: accuracy_rating
+    derivation_scope: primary_blocks_1_5
+    between_center: 5.70371756698893
+    units: rating_points
+    z_scored: false
+    rounded: false
+    binned: false
+    strict_clean_recalculation: false
+  objective_error:
+    source_column: error
+    derivation_scope: finite_primary_overt
+    transform: natural_log
+    between_center: 4.467802672900884
+    imputation: false
+    speed_error_composite: false
+
+factor_coding:
+  condition:
+    physical: {analysis_label: overt, code: -0.5}
+    imagery: {analysis_label: imagery, code: 0.5}
+  familiarity:
+    random: {analysis_label: random, code: -0.5}
+    repeated: {analysis_label: repeated, code: 0.5}
+  phase:
+    pre_end: {code: -0.5}
+    pmbr: {code: 0.5}
+
+model_roles:
+  theta_primary:
+    order: 1
+    roi_name: frontal_theta
+    band: theta
+    feature_definition: response_onset_0_1
+    outcome_role: frontal_theta_execution
+    phase: null
+    primary_role: true
+  theta_window_sensitivity:
+    order: 2
+    roi_name: frontal_theta
+    band: theta
+    feature_definition: response_onset_0_0p5
+    outcome_role: frontal_theta_execution_window_sensitivity
+    phase: null
+    primary_role: false
+  alpha_primary:
+    order: 3
+    roi_name: posterior_alpha
+    band: alpha
+    feature_definition: response_end_0_1
+    outcome_role: posterior_alpha_post_response
+    phase: null
+    primary_role: true
+  beta_pre:
+    order: 4
+    roi_name: contralateral_motor_beta
+    band: beta
+    feature_definition: response_end_pre_0p5_0
+    outcome_role: contralateral_motor_beta
+    phase: pre_end
+    primary_role: true
+  beta_pmbr:
+    order: 5
+    roi_name: contralateral_motor_beta
+    band: beta
+    feature_definition: response_end_pmbr_0p5_1p5
+    outcome_role: contralateral_motor_beta
+    phase: pmbr
+    primary_role: true
+
+estimands:
+  primary_ids: [T1, T2, T3, A1, A2, A3, B1, B2, B3]
+  supplementary_ids: [B4, B5, B6]
+  primary_family_size: 9
+  estimation_interval_percent: 95.0
+  familywise_support_interval_percent: 99.4444
+  fallback_correction: Holm
+  tests_two_sided: true
+  rope_authorized: false
+  equivalence_test_authorized: false
+
+expected_views:
+  h1_theta_primary: 7307
+  h1_theta_window_sensitivity: 7307
+  h2_alpha_primary: 7307
+  h3_beta_primary: 14614
+  primary_core_union: 29228
+  primary_core_plus_h1_window: 36535
+  h1_theta_primary_strict_clean: 7303
+  h1_theta_window_sensitivity_strict_clean: 7303
+  h2_alpha_primary_strict_clean: 7303
+  h3_beta_primary_strict_clean: 14606
+  primary_core_union_strict_clean: 29212
+  primary_core_plus_h1_window_strict_clean: 36515
+  objective_error_theta: 3703
+  objective_error_alpha: 3703
+  bridge_descriptive: 2952
+  bridge_descriptive_plus_h1_window: 3690
+
+safety:
+  reconstruct_features_from_tfr: false
+  change_eligibility: false
+  impute_objective_error: false
+  z_score_or_bin_rating: false
+  instantiate_priors: false
+  prior_predictive_simulation: false
+  compile_or_fit_models: false
+  calculate_estimands_or_intervals: false
+  inspect_eeg_associations: false
+  run_sensitivities_or_influence: false
+  fit_gamm: false
+  apply_csd: false
+  interpret_results: false
+
+storage:
+  output_root: _Data/eeg/model_tables_v1
+  general_table: model_ready_general.parquet
+  compression: zstd
+  atomic_directory_publication: true
+  unchanged_validated_reuse_without_rewrite: true
