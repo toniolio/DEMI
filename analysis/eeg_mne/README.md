@@ -20,6 +20,10 @@ constructs and validates the accepted response-onset, response-end, and
 processing. Script 16 constructs and validates the accepted trial-level Morlet
 power and trial-matched `red_on` dB products without changing epoch
 eligibility.
+Script 17 constructs the accepted fixed-band/window channel and ROI features.
+Script 18 selects the frozen model-ready ROI roles, derives the accepted
+within-/between-participant predictors, and publishes deterministic analysis
+views without fitting a model.
 
 ## Environment and local inputs
 
@@ -276,6 +280,34 @@ scopes, behavioural-lineage evidence, and physical source-channel provenance.
 This stage does not average participants, build a model table, fit an
 inferential model, calculate contrasts, apply CSD, or interpret EEG effects.
 
+### 13. Construct model-ready tables and deterministic views
+
+```sh
+tools/run_model_tables_v1.sh
+```
+
+Script 18 reads the accepted persisted ROI feature and behavioural-lineage
+Parquets. It selects exactly five predeclared ROI/window roles per accepted
+trial and writes the versioned `_Data/eeg/model_tables_v1/` namespace with
+deterministic primary, strict-clean, objective-error, and final-overt bridge
+views. Accuracy rating retains raw rating-point units and uses a frozen
+within-/between-participant decomposition. Objective error is exposed only in
+bounded overt-only theta and alpha secondary views.
+
+The stage records model-role, factor-coding, controlled-reason, and estimand
+registries, validates predictor-only model-matrix rank, and preserves complete
+source/hash provenance. Every EEG value is selected directly from the
+persisted ROI table; TFR arrays are not used to reconstruct features. An
+unchanged rerun hashes and reopens current artifacts without rewriting them:
+
+```sh
+tools/run_model_tables_v1.sh --verify-current
+```
+
+No prior, prior-predictive simulation, model fit, EEG association, estimand,
+interval, test, sensitivity, influence analysis, GAMM, CSD derivative, or
+scientific interpretation is produced.
+
 ## Script index
 
 | Script | Current role | Status |
@@ -298,12 +330,14 @@ inferential model, calculate contrasts, apply CSD, or interpret EEG effects.
 | 15 | Accepted response-onset, response-end, and `red_on` Epochs | Complete: 8,798 epochs per family |
 | 16 | Trial-level Morlet power and trial-matched `red_on` dB normalization | Complete: 8,798 onset and 8,798 end trials |
 | 17 | Conventional fixed-band/window channel and predeclared ROI features | Complete: 2,903,340 channel and 114,374 ROI rows |
+| 18 | Model-ready ROI table, predictor decomposition, and deterministic views | Complete: 43,990 five-role rows; no model or inference |
 
 Scripts 00--12 remain evidence/audit programs. Script 13 owns production
 continuous preprocessing, script 14 owns the policy ledger, and script 15 owns
 the versioned accepted epoch namespace. Script 16 owns the versioned
 trial-level TFR namespace. Script 17 owns the versioned conventional feature
-namespace.
+namespace. Script 18 owns the versioned model-ready table and deterministic
+view namespace.
 
 ## Scientific-policy boundary and stopping point
 
@@ -322,11 +356,13 @@ TFR, and conventional feature stages are complete. Continuous success remains
 independent of event-source availability, the accepted 8,905-row candidate
 surface, and later analytic inclusion. The TFR stage adds no epoch rejection and does not by
 itself constitute an EEG result. The feature stage preserves channel-level and
-predeclared ROI surfaces but adds no model or inference. Model-ready predictor
-representation, statistical models, inferential contrasts, CSD sensitivity,
-and scientific interpretation remain separate future stages. A whole-scalp
-GAMM is, at most, a later historical/spatial sensitivity rather than the
-primary analysis architecture.
+predeclared ROI surfaces but adds no model or inference. The model-table stage
+freezes predictor representation and deterministic hypothesis views but also
+adds no model or inference. Synthetic formula/estimand implementation,
+prior-predictive validation, model fitting, inferential contrasts, CSD
+sensitivity, and scientific interpretation remain separate future stages. A
+whole-scalp GAMM is, at most, a later historical/spatial sensitivity rather
+than the primary analysis architecture.
 
 ## Validation
 
@@ -343,6 +379,7 @@ Focused contracts are covered by `tests/test_event_source_contract.py`,
 `tests/test_epoch_construction.py`,
 `tests/test_tfr_construction.py`,
 `tests/test_feature_construction.py`,
+`tests/test_model_table_construction.py`,
 `tests/test_channel_qc.py`, `tests/test_montage_contract.py`,
 `tests/test_preprocessing_parameter_audit.py`, and
 `tests/test_raw_qc_guardrails.py`. Production continuous contracts, ICA routing,

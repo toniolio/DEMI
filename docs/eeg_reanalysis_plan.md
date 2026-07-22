@@ -41,11 +41,16 @@ surface; artifact flags are diagnostic metadata and do not change eligibility.
 Script 17 now provides conventional trial-level fixed-band/window features for
 all 30 physical channels and equal-weight predeclared frontal, posterior, and
 task-hand-normalized motor ROIs. It retains all 8,798 trials, with dB primary
-and unnormalized log power as a sensitivity. No statistical model or
-inferential result has yet been produced. Model-ready predictor representation,
-statistical modelling, inferential contrasts, CSD sensitivity, and scientific
-interpretation remain separate future stages; a whole-scalp GAMM is reserved
-only as a possible later spatial/historical sensitivity.
+and unnormalized log power as a sensitivity. Script 18 selects five
+predeclared ROI/window roles per accepted trial into a model-ready table and
+publishes deterministic hypothesis, strict-clean, overt-only objective-error,
+and bridge views. Accuracy rating uses a frozen within-/between-participant
+decomposition; objective error is limited to a bounded overt-only secondary
+surface. No statistical model or inferential result has yet been produced.
+Model implementation, prior-predictive validation, inferential contrasts, CSD
+sensitivity, and scientific interpretation remain separate future stages; a
+whole-scalp GAMM is reserved only as a possible later spatial/historical
+sensitivity.
 
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary
