@@ -54,7 +54,7 @@ stopifnot(max(beta_algebra$absolute_difference) <= 1e-12)
 stopifnot(identical(rating_algebra$estimand_id, c("T1", "T2", "T3")))
 stopifnot(identical(alpha_algebra$estimand_id, c("A1", "A2", "A3")))
 stopifnot(identical(beta_algebra$estimand_id, paste0("B", 1:6)))
-stopifnot(max(abs(rating_algebra$direct_algebra - c(0.8, 1.6, 0.8))) <= 1e-12)
+stopifnot(max(abs(rating_algebra$direct_algebra - c(1.0, 1.6, 0.6))) <= 1e-12)
 stopifnot(max(abs(beta_algebra$direct_algebra - c(1.0, 1.8, 0.8, 0.4, 0.8, 0.4))) <= 1e-12)
 
 registry <- estimand_contrast_registry()

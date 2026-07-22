@@ -343,10 +343,10 @@ generate_rating_synthetic <- function(seed) {
   fixed <- c(
     "(Intercept)" = -1.0,
     "condition_c" = 0.5,
-    "accuracy_rating_within" = 1.2,
+    "accuracy_rating_within" = 1.3,
     "accuracy_rating_between" = 0.3,
     "familiarity_c" = -0.2,
-    "condition_c:accuracy_rating_within" = 0.8
+    "condition_c:accuracy_rating_within" = 0.6
   )
   random_sd <- c("(Intercept)" = 0.4, "accuracy_rating_within" = 0.25, "familiarity_c" = 0.2)
   random <- sapply(random_sd, function(sd) stats::rnorm(length(participants), 0, sd))
