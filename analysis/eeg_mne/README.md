@@ -308,6 +308,29 @@ No prior, prior-predictive simulation, model fit, EEG association, estimand,
 interval, test, sensitivity, influence analysis, GAMM, CSD derivative, or
 scientific interpretation is produced.
 
+### 14. Validate model formulas and priors on synthetic outcomes
+
+```sh
+tools/run_eeg_model_validation_v1.sh
+```
+
+Stage 19 implements the three predeclared hierarchical Student-t formulas,
+explicit fixed-effect estimand contrasts, model-specific pooled-scale priors,
+deterministic synthetic recovery fits, and predictor-collapsed prior
+predictions. Its separate input routes allow `value_db` alone for pooled scale
+calibration or allowlisted predictor/group/key columns with all observed EEG
+outcomes excluded.
+
+Outputs are written atomically below the ignored
+`_Data/eeg/model_validation_v1/` namespace. Reopen and hash-check them without
+rewriting with:
+
+```sh
+tools/run_eeg_model_validation_v1.sh --verify-current
+```
+
+No accepted EEG model is fitted and no scientific estimate is calculated.
+
 ## Script index
 
 | Script | Current role | Status |
@@ -331,6 +354,7 @@ scientific interpretation is produced.
 | 16 | Trial-level Morlet power and trial-matched `red_on` dB normalization | Complete: 8,798 onset and 8,798 end trials |
 | 17 | Conventional fixed-band/window channel and predeclared ROI features | Complete: 2,903,340 channel and 114,374 ROI rows |
 | 18 | Model-ready ROI table, predictor decomposition, and deterministic views | Complete: 43,990 five-role rows; no model or inference |
+| 19 | Synthetic formula/estimand recovery and pooled prior validation | Complete: three formulas compiled and validated; no accepted EEG fit |
 
 Scripts 00--12 remain evidence/audit programs. Script 13 owns production
 continuous preprocessing, script 14 owns the policy ledger, and script 15 owns
@@ -358,11 +382,11 @@ surface, and later analytic inclusion. The TFR stage adds no epoch rejection and
 itself constitute an EEG result. The feature stage preserves channel-level and
 predeclared ROI surfaces but adds no model or inference. The model-table stage
 freezes predictor representation and deterministic hypothesis views but also
-adds no model or inference. Synthetic formula/estimand implementation,
-prior-predictive validation, model fitting, inferential contrasts, CSD
-sensitivity, and scientific interpretation remain separate future stages. A
-whole-scalp GAMM is, at most, a later historical/spatial sensitivity rather
-than the primary analysis architecture.
+adds no model or inference. Synthetic formula/estimand implementation and
+pooled prior-predictive validation are complete. Accepted-outcome model fitting
+and diagnostic review remain the next separate boundary; scientific
+estimands, interpretation, CSD sensitivity, and any whole-scalp
+historical/spatial GAMM remain later stages.
 
 ## Validation
 

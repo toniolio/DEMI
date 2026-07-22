@@ -46,11 +46,13 @@ predeclared ROI/window roles per accepted trial into a model-ready table and
 publishes deterministic hypothesis, strict-clean, overt-only objective-error,
 and bridge views. Accuracy rating uses a frozen within-/between-participant
 decomposition; objective error is limited to a bounded overt-only secondary
-surface. No statistical model or inferential result has yet been produced.
-Model implementation, prior-predictive validation, inferential contrasts, CSD
-sensitivity, and scientific interpretation remain separate future stages; a
-whole-scalp GAMM is reserved only as a possible later spatial/historical
-sensitivity.
+surface. Stage 19 has validated the three predeclared hierarchical formulas
+and estimand algebra on synthetic outcomes and has checked model-specific
+priors and pooled prior-predictive behavior. No accepted EEG model has been
+fitted and no scientific estimate exists. The next boundary is observed-data
+fitting with diagnostics kept separate from scientific interpretation.
+Inferential reporting, CSD sensitivity, and a possible later
+spatial/historical whole-scalp GAMM remain separate stages.
 
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary
