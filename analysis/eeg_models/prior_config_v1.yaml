@@ -1,0 +1,42 @@
+schema_version: 1
+prior_version: eeg_model_priors_v1
+stage18_authority_fingerprint: 685cdf04bb9d638b69e7b216f656ae4088659c7570bc3b451f8daafc80a8f43b
+scale_definition: "m_y = pooled median(value_db); s_y = 1.4826 * median(abs(value_db - m_y))"
+scale_path_boundary: "Each source projection contains value_db only and no scientific predictor or grouping column."
+
+models:
+  H1:
+    source_view: _Data/eeg/model_tables_v1/views/h1_theta_primary.parquet
+    pooled_rows: 7307
+    m_y: -1.0782096742549123
+    mad_raw: 2.0052281389619142
+    s_y: 2.9729512388249337
+    intercept_scale: 7.4323780970623341
+  H2:
+    source_view: _Data/eeg/model_tables_v1/views/h2_alpha_primary.parquet
+    pooled_rows: 7307
+    m_y: -1.9674572149205574
+    mad_raw: 1.9515675026065669
+    s_y: 2.8933939793644958
+    intercept_scale: 7.23348494841124
+  H3:
+    source_view: _Data/eeg/model_tables_v1/views/h3_beta_primary.parquet
+    pooled_rows: 14614
+    m_y: -2.6871520672263003
+    mad_raw: 1.5883356172869032
+    s_y: 2.3548663861895625
+    intercept_scale: 5.8871659654739066
+
+mapping:
+  intercept: {distribution: student_t, df: 3, location: m_y, scale: "2.5 * s_y", brms_class: Intercept}
+  fixed_coefficients: {distribution: normal, mean: 0, sd: s_y, brms_class: b, directional: false}
+  group_standard_deviations: {distribution: student_t, df: 3, location: 0, scale: s_y, lower_bound: 0, brms_class: sd}
+  residual_scale: {distribution: student_t, df: 3, location: 0, scale: s_y, lower_bound: 0, brms_class: sigma}
+  residual_degrees_of_freedom: {distribution: gamma, shape: 2, rate: 0.1, brms_class: nu}
+
+tuning:
+  predictor_specific: false
+  directional_scientific_effect: false
+  effect_crosses_zero_used: false
+  condition_or_rating_specific_outcome_summary_used: false
+

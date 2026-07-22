@@ -1,0 +1,91 @@
+schema_version: 1
+pipeline_version: model_validation_v1
+
+authority:
+  stage18_authority_fingerprint: 685cdf04bb9d638b69e7b216f656ae4088659c7570bc3b451f8daafc80a8f43b
+  stage18_validation_status: pass
+  expected_general_rows: 43990
+  expected_primary_trials: 7307
+  expected_h3_rows: 14614
+  expected_participants: 81
+  expected_recordings: 81
+  primary_estimands: [T1, T2, T3, A1, A2, A3, B1, B2, B3]
+  supplementary_estimands: [B4, B5, B6]
+
+models:
+  H1:
+    description: frontal theta rating model
+    source_view: _Data/eeg/model_tables_v1/views/h1_theta_primary.parquet
+    future_observed_outcome: H1 theta-primary dB view
+    formula: "value_synthetic ~ condition_c * accuracy_rating_within + accuracy_rating_between + familiarity_c + (1 + accuracy_rating_within + familiarity_c || participant_id)"
+    fixed_formula: "~ condition_c * accuracy_rating_within + accuracy_rating_between + familiarity_c"
+    expected_rows: 7307
+    expected_fixed_terms: ["(Intercept)", condition_c, accuracy_rating_within, accuracy_rating_between, familiarity_c, "condition_c:accuracy_rating_within"]
+    participant_random_terms: ["(Intercept)", accuracy_rating_within, familiarity_c]
+    trial_random_intercept: false
+  H2:
+    description: posterior alpha rating model
+    source_view: _Data/eeg/model_tables_v1/views/h2_alpha_primary.parquet
+    future_observed_outcome: H2 alpha-primary dB view
+    formula: "value_synthetic ~ condition_c * accuracy_rating_within + accuracy_rating_between + familiarity_c + (1 + accuracy_rating_within + familiarity_c || participant_id)"
+    fixed_formula: "~ condition_c * accuracy_rating_within + accuracy_rating_between + familiarity_c"
+    expected_rows: 7307
+    expected_fixed_terms: ["(Intercept)", condition_c, accuracy_rating_within, accuracy_rating_between, familiarity_c, "condition_c:accuracy_rating_within"]
+    participant_random_terms: ["(Intercept)", accuracy_rating_within, familiarity_c]
+    trial_random_intercept: false
+  H3:
+    description: contralateral beta phase model
+    source_view: _Data/eeg/model_tables_v1/views/h3_beta_primary.parquet
+    future_observed_outcome: H3 beta-primary long dB view
+    formula: "value_synthetic ~ condition_c * phase_c * familiarity_c + (1 + phase_c * familiarity_c || participant_id) + (1 | canonical_event_key)"
+    fixed_formula: "~ condition_c * phase_c * familiarity_c"
+    expected_rows: 14614
+    expected_fixed_terms: ["(Intercept)", condition_c, phase_c, familiarity_c, "condition_c:phase_c", "condition_c:familiarity_c", "phase_c:familiarity_c", "condition_c:phase_c:familiarity_c"]
+    participant_random_terms: ["(Intercept)", phase_c, familiarity_c, "phase_c:familiarity_c"]
+    trial_random_intercept: true
+
+family:
+  name: student
+  link: identity
+  participant_correlations: false
+  recording_random_intercept: false
+
+engineering_criteria:
+  declared_before_fits: true
+  interval_probability: 0.95
+  maximum_divergences: 0
+  maximum_rhat: 1.01
+  minimum_bulk_ess: 400
+  minimum_tail_ess: 400
+  maximum_treedepth_saturations: 0
+  posterior_mean_maximum_standard_errors_from_truth: 2.0
+  prior_predictive_minimum_finite_proportion: 0.999999
+  prior_predictive_minimum_central90_width_sy: 1.0
+  prior_predictive_maximum_proportion_beyond_20_sy: 0.05
+  prior_predictive_maximum_proportion_beyond_50_sy: 0.01
+  prior_sd_median_minimum_sy: 0.1
+  prior_sd_median_maximum_sy: 5.0
+  nu_minimum_probability_below_10: 0.1
+  nu_minimum_probability_above_30: 0.1
+
+computation:
+  synthetic_rating_seed: 190101
+  synthetic_beta_seed: 190102
+  rating_fit_seed: 190201
+  beta_fit_seed: 190202
+  prior_predictive_seeds: {H1: 190301, H2: 190302, H3: 190303}
+  chains: 4
+  parallel_chains: 4
+  warmup: 500
+  sampling: 750
+  adapt_delta: 0.99
+  max_treedepth: 12
+  prior_predictive_draws: 1000
+  prior_predictive_figure_sample: 100000
+
+storage:
+  output_root: _Data/eeg/model_validation_v1
+  atomic_directory_publication: true
+  validated_unchanged_reuse_without_rewrite: true
+  accepted_observed_posterior_draws_authorized: false
+
