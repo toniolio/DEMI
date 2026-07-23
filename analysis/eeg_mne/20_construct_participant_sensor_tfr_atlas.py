@@ -122,7 +122,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Require a complete current atlas and validate/reuse it without rewriting.",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--replace-current",
+        action="store_true",
+        help="Archive the current atlas before an explicitly authorized rendering-only republication.",
+    )
+    args = parser.parse_args()
+    if args.verify_current and args.replace_current:
+        parser.error("--verify-current cannot be combined with --replace-current")
+    return args
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -275,6 +283,20 @@ def participant_metadata(frame: pd.DataFrame, saturation: Mapping[str, Any]) -> 
     }
 
 
+def archive_current_rendering(output_root: Path) -> Path:
+    """Recoverably move a stale rendering aside before authorized republication.
+
+    This never changes a TFR or participant summary. The old ignored atlas is
+    preserved beside the atomic destination so a failed new rendering cannot
+    overwrite it in place.
+    """
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    archived = output_root.parent / f".{output_root.name}.previous-rendering-{stamp}"
+    os.replace(output_root, archived)
+    return archived
+
+
 def render_participant_page(
     *,
     onset: np.ndarray,
@@ -352,29 +374,45 @@ def render_participant_page(
             spine.set_visible(False)
         axis.text(-0.08, 0.98, channel, transform=axis.transAxes, ha="right", va="top", fontsize=8)
 
-    # A compact historical-style key remains visible even though every panel has guides.
-    key = figure.add_axes([0.055, 0.015, 0.18, 0.085])
-    key.set_xlim(float(times[0]), end_stop)
+    # A compact historical-style key mirrors the paired sensor-panel geometry:
+    # two same-width epoch boxes with independent within-epoch t=0 markers.
+    key = figure.add_axes([0.075, 0.064, 0.235, 0.105], label="atlas_explanatory_key")
+    key.set_xlim(float(times[0]) - 0.24, end_stop + 0.04)
     key.set_ylim(float(frequencies[0]), float(frequencies[-1]))
+    epoch_width = float(times[-1] - times[0])
+    for epoch_start in (float(times[0]), end_start):
+        key.add_patch(plt.Rectangle(
+            (epoch_start, float(frequencies[0])), epoch_width,
+            float(frequencies[-1] - frequencies[0]), fill=False,
+            edgecolor="black", linewidth=0.8,
+        ))
+        for frequency in guide_y:
+            key.plot([epoch_start, epoch_start + epoch_width], [frequency, frequency], color="black", linewidth=0.6)
     key.axvline(0.0, color="black", linewidth=0.8)
     key.axvline(end_zero, color="black", linewidth=0.8)
-    key.axvspan(float(times[-1]), end_start, color="white", alpha=1.0, linewidth=0.0)
-    for frequency in guide_y:
-        key.axhline(frequency, color="black", linewidth=0.6)
-    key.set_xticks([0.0, end_zero], ["t=0\nDuring", "t=0\nAfter"], fontsize=7)
-    key.set_yticks(guide_y, ["θ", "α", "β"], fontsize=8)
-    key.tick_params(length=2, pad=1)
-    key.spines[["top", "right"]].set_visible(False)
+    label_centres = display["frequency_label_centres_hz"]
+    key.set_yticks(
+        [
+            float(label_centres["theta"]), float(label_centres["alpha"]),
+            float(label_centres["beta"]), float(label_centres["diagnostic_exploratory"]),
+        ],
+        ["theta\n4–8 Hz", "alpha\n9–12 Hz", "beta\n13–30 Hz", "diagnostic/\nexploratory\n31–40 Hz"],
+        fontsize=5.8,
+    )
+    key.set_xticks([])
+    key.tick_params(axis="y", length=0, pad=2)
+    for spine in key.spines.values():
+        spine.set_visible(False)
+    key.text(0.0, -0.08, "t = 0", transform=key.get_xaxis_transform(), ha="center", va="top", fontsize=6.5, clip_on=False)
+    key.text(end_zero, -0.08, "t = 0", transform=key.get_xaxis_transform(), ha="center", va="top", fontsize=6.5, clip_on=False)
+    key.text(0.5, -0.27, "During", transform=key.get_xaxis_transform(), ha="center", va="top", fontsize=7.2, clip_on=False)
+    key.text(end_start + 1.0, -0.27, "After", transform=key.get_xaxis_transform(), ha="center", va="top", fontsize=7.2, clip_on=False)
 
     colour_axis = figure.add_axes([0.76, 0.028, 0.18, 0.016])
     colourbar = figure.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=colour_axis, orientation="horizontal")
     colourbar.set_label("dB relative power", fontsize=8, labelpad=3)
     colourbar.ax.tick_params(labelsize=7, length=2)
-    figure.text(
-        0.76, 0.074,
-        "white lines: θ 4–8, α 9–12, β 13–30 Hz\n31–40 Hz retained as diagnostic/exploratory",
-        ha="left", va="bottom", fontsize=6.7,
-    )
+    figure.text(0.76, 0.074, "white separators: 8.5, 12.5, 30.5 Hz", ha="left", va="bottom", fontsize=6.7)
     return figure
 
 
@@ -472,7 +510,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if args.verify_current:
         raise RuntimeError("atlas_verify_current_requires_matching_complete_output")
     if final_root.exists():
-        raise RuntimeError("atlas_existing_output_is_stale_or_invalid_refusing_to_overwrite")
+        if not args.replace_current:
+            raise RuntimeError("atlas_existing_output_is_stale_or_invalid_refusing_to_overwrite")
+        archived = archive_current_rendering(final_root)
+        print_progress(f"archived prior rendering={archived.name}")
 
     lineage = load_lineage(repo_root, tfr)
     selection = select_assigned_condition_trials(lineage, config)

@@ -49,6 +49,11 @@ display:
   db_maximum: 8.0
   frequency_guides_hz: [8.5, 12.5, 30.5]
   frequency_guide_labels: [theta, alpha, beta]
+  frequency_label_centres_hz:
+    theta: 6.0
+    alpha: 10.5
+    beta: 21.5
+    diagnostic_exploratory: 35.5
   diagnostic_frequency_range_hz: [31.0, 40.0]
   onset_end_gap_seconds: 0.15
   figure_width_inches: 14.0

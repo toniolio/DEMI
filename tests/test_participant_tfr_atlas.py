@@ -205,3 +205,41 @@ def test_configuration_closes_scale_palette_and_bridge_contract() -> None:
     assert (config["display"]["db_minimum"], config["display"]["db_maximum"]) == (-8.0, 8.0)
     assert config["accepted_surface"]["assigned_condition_trial_count"] == EXPECTED_ASSIGNED_TRIALS
     assert config["accepted_surface"]["imagery_final_overt_bridge_excluded_from_means"] == EXPECTED_BRIDGE_EXCLUDED
+    assert config["display"]["frequency_label_centres_hz"] == {
+        "theta": 6.0, "alpha": 10.5, "beta": 21.5, "diagnostic_exploratory": 35.5,
+    }
+
+
+def test_explanatory_key_centres_band_labels_and_matches_paired_epochs() -> None:
+    """The key labels band ranges and reproduces the two-panel time geometry."""
+
+    spec = importlib.util.spec_from_file_location(
+        "atlas_driver_key", EEG_DIR / "20_construct_participant_sensor_tfr_atlas.py"
+    )
+    assert spec and spec.loader
+    driver = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(driver)
+    config = load_and_validate_config(CONFIG)[0]
+    positions = load_layout_positions(LAYOUT, PRIMARY_CHANNELS)
+    surface = np.zeros((30, 37, 201), dtype=float)
+    figure = driver.render_participant_page(
+        onset=surface, end=surface,
+        metadata={
+            "behavioural_id": 1, "assigned_condition": "overt_movement", "contributing_trial_count": 1,
+            "strict_clean_trial_count": 1, "duration_warning_trial_count": 0, "performed_conditions": "physical",
+            "original_handedness": "r", "analysis_hand": "right", "interpolation_count": 0,
+            "continuous_qc_warning": False, "saturated_percent": 0.0,
+        },
+        channels=list(PRIMARY_CHANNELS), frequencies=np.arange(4.0, 41.0),
+        times=np.arange(-50, 151, dtype=float) / 100.0, positions=positions, config=config,
+    )
+    key = next(axis for axis in figure.axes if axis.get_label() == "atlas_explanatory_key")
+    assert np.allclose(key.get_yticks(), [6.0, 10.5, 21.5, 35.5])
+    assert [item.get_text() for item in key.get_yticklabels()] == [
+        "theta\n4–8 Hz", "alpha\n9–12 Hz", "beta\n13–30 Hz", "diagnostic/\nexploratory\n31–40 Hz",
+    ]
+    texts = {(item.get_text(), round(item.get_position()[0], 2)) for item in key.texts}
+    assert ("t = 0", 0.0) in texts and ("t = 0", 2.15) in texts
+    assert ("During", 0.5) in texts and ("After", 2.65) in texts
+    assert len(key.patches) == 2
+    driver.plt.close(figure)
