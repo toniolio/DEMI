@@ -24,6 +24,8 @@ Script 17 constructs the accepted fixed-band/window channel and ROI features.
 Script 18 selects the frozen model-ready ROI roles, derives the accepted
 within-/between-participant predictors, and publishes deterministic analysis
 views without fitting a model.
+Script 20 is a separate read-only participant-level TFR atlas for human visual
+QC; it does not create an inferential result.
 
 ## Environment and local inputs
 
@@ -331,6 +333,21 @@ tools/run_eeg_model_validation_v1.sh --verify-current
 
 No accepted EEG model is fitted and no scientific estimate is calculated.
 
+### 15. Produce the participant-level sensor TFR visual-QC atlas
+
+```sh
+tools/run_participant_sensor_tfr_atlas_v1.sh
+```
+
+Script 20 reads the accepted response-onset and response-end dB arrays with
+memory mapping and produces two multipage PDFs under
+`_Data/eeg/participant_sensor_tfr_atlas_v1/`, one page per accepted
+participant. It uses physical, unmirrored 30-channel labels, historical
+BESA-derived presentation coordinates, paired onset/end panels, the stored
+4--40 Hz and -0.5-to-+1.5 s axes, and a fixed plasma -8 to +8 dB scale.
+It is a descriptive human visual-QC product only: no trials are changed, no
+group/ROI summary is made, and no inferential result is produced.
+
 ## Script index
 
 | Script | Current role | Status |
@@ -355,6 +372,7 @@ No accepted EEG model is fitted and no scientific estimate is calculated.
 | 17 | Conventional fixed-band/window channel and predeclared ROI features | Complete: 2,903,340 channel and 114,374 ROI rows |
 | 18 | Model-ready ROI table, predictor decomposition, and deterministic views | Complete: 43,990 five-role rows; no model or inference |
 | 19 | Synthetic formula/estimand recovery and pooled prior validation | Complete: three formulas compiled and validated; no accepted EEG fit |
+| 20 | Participant-level paired sensor TFR visual-QC atlas | Complete: 81 physical/unmirrored participant pages; no inference |
 
 Scripts 00--12 remain evidence/audit programs. Script 13 owns production
 continuous preprocessing, script 14 owns the policy ledger, and script 15 owns
@@ -403,6 +421,7 @@ Focused contracts are covered by `tests/test_event_source_contract.py`,
 `tests/test_epoch_construction.py`,
 `tests/test_tfr_construction.py`,
 `tests/test_feature_construction.py`,
+`tests/test_participant_tfr_atlas.py`,
 `tests/test_model_table_construction.py`,
 `tests/test_channel_qc.py`, `tests/test_montage_contract.py`,
 `tests/test_preprocessing_parameter_audit.py`, and

@@ -54,6 +54,10 @@ fitting with diagnostics kept separate from scientific interpretation.
 Inferential reporting, CSD sensitivity, and a possible later
 spatial/historical whole-scalp GAMM remain separate stages.
 
+A separate participant-level sensor TFR atlas is available as a descriptive
+human visual-QC product. It presents current accepted TFRs without creating a
+group result, model, contrast, or inferential claim.
+
 This document is intentionally high-level. Detailed working notes, local data
 inventories, accepted event and preprocessing policy records, and temporary
 planning materials remain private. Tracked identity, montage, and parameter
