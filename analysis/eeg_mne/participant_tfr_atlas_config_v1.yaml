@@ -1,0 +1,79 @@
+schema_version: 1
+pipeline_version: participant_sensor_tfr_atlas_v1
+
+# This is a descriptive, read-only visual-QC product.  It does not create a
+# new signal derivative or alter the accepted stage-16 TFR surface.
+safety:
+  read_only_tfr_arrays: true
+  accepted_array_representations: [response_onset_db, response_end_db]
+  memory_map_arrays: true
+  rerun_convolution: false
+  create_baseline: false
+  apply_csd: false
+  mirror_handedness: false
+  change_trial_eligibility: false
+  fit_models_or_statistics: false
+  create_group_or_roi_plots: false
+  write_png_previews: false
+
+paths:
+  tfr_root: _Data/eeg/tfr_v1
+  behavioural_lineage: _Data/eeg/features_v1/metadata/behavioural_lineage.parquet
+  historical_layout: _Scripts/_misc/sensor_latlong_chan_map.csv
+  historical_audit: _Private/inventory/historical_participant_sensor_tfr_atlas_audit_2026-07-22.md
+  output_root: _Data/eeg/participant_sensor_tfr_atlas_v1
+
+accepted_surface:
+  participant_count: 81
+  overt_participant_count: 41
+  imagery_participant_count: 40
+  accepted_trial_count: 8798
+  assigned_condition_trial_count: 8060
+  imagery_final_overt_bridge_excluded_from_means: 738
+  channel_count: 30
+  frequency_minimum_hz: 4.0
+  frequency_maximum_hz: 40.0
+  frequency_count: 37
+  time_minimum_seconds: -0.5
+  time_maximum_seconds: 1.5
+  time_sample_count: 201
+  strict_clean_trial_count: 8789
+  duration_warning_trial_count: 9
+  participant_4_trial_count: 48
+  participant_60_trial_count: 34
+  file49_trial_count: 117
+
+display:
+  palette: plasma
+  db_minimum: -8.0
+  db_maximum: 8.0
+  frequency_guides_hz: [8.5, 12.5, 30.5]
+  frequency_guide_labels: [theta, alpha, beta]
+  diagnostic_frequency_range_hz: [31.0, 40.0]
+  onset_end_gap_seconds: 0.15
+  figure_width_inches: 14.0
+  figure_height_inches: 14.0
+  panel_width_fraction: 0.098
+  panel_height_fraction: 0.103
+  output_format: pdf
+  pdfs:
+    overt: overt_movement_participants.pdf
+    imagery: imagery_participants.pdf
+
+selection:
+  overt_group: physical
+  imagery_group: imagery
+  overt_condition_semantics: overt_movement
+  imagery_condition_semantics: motor_imagery
+  selection_description: >-
+    Physical-group participants contribute accepted overt-movement trials.
+    Imagery-group participants contribute accepted motor-imagery trials only;
+    their final-overt bridge trials remain accepted source rows but are excluded
+    from participant atlas averaging.
+
+presentation:
+  layout_coordinate_statement: >-
+    Historical BESA-derived presentation coordinates only; they are not
+    individual digitizations and do not change the active standard_1005 montage.
+  reference_statement: >-
+    Current average-referenced TFR-v1 dB power; not the historical CSD surface.
